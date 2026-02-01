@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const strict = process.env.WRANGLER_GEN_STRICT === '1';
 
@@ -23,7 +24,10 @@ function optionalEnv(name) {
 	return value && value.length ? value : undefined;
 }
 
-const repoRoot = process.cwd();
+// Always resolve paths relative to the repo root (not the current working directory),
+// so this script works when invoked from any subdirectory (e.g. CI, apps/worker).
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(scriptDir, '..');
 const outPath = path.join(repoRoot, 'apps/worker/wrangler.jsonc');
 
 const d1DatabaseId = requiredEnv(
