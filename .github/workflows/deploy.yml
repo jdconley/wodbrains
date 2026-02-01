@@ -25,8 +25,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Run tests
-        run: pnpm test
+      - name: Generate wrangler.jsonc
+        run: pnpm wrangler:gen
+        env:
+          WRANGLER_GEN_STRICT: '1'
+          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
+          CLOUDFLARE_ZONE_NAME: ${{ secrets.CLOUDFLARE_ZONE_NAME }}
+          CLOUDFLARE_ROUTE_WODBRAINS: ${{ secrets.CLOUDFLARE_ROUTE_WODBRAINS }}
+          CLOUDFLARE_ROUTE_WWW: ${{ secrets.CLOUDFLARE_ROUTE_WWW }}
 
       - name: Run typecheck
         run: pnpm typecheck
@@ -37,14 +43,9 @@ jobs:
       - name: Build web app
         run: pnpm --filter web build
 
-      - name: Generate wrangler.jsonc
-        run: pnpm wrangler:gen
-        env:
-          WRANGLER_GEN_STRICT: '1'
-          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
-          CLOUDFLARE_ZONE_NAME: ${{ secrets.CLOUDFLARE_ZONE_NAME }}
-          CLOUDFLARE_ROUTE_WODBRAINS: ${{ secrets.CLOUDFLARE_ROUTE_WODBRAINS }}
-          CLOUDFLARE_ROUTE_WWW: ${{ secrets.CLOUDFLARE_ROUTE_WWW }}
+      - name: Run tests
+        run: pnpm test
+
 
       - name: Apply D1 migrations
         uses: cloudflare/wrangler-action@v3
