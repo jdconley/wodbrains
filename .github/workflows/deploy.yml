@@ -26,15 +26,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Generate wrangler.jsonc
-        run: pnpm wrangler:gen
-        env:
-          WRANGLER_GEN_STRICT: '1'
-          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
-          CLOUDFLARE_ZONE_NAME: ${{ secrets.CLOUDFLARE_ZONE_NAME }}
-          CLOUDFLARE_ROUTE_WODBRAINS: ${{ secrets.CLOUDFLARE_ROUTE_WODBRAINS }}
-          CLOUDFLARE_ROUTE_WWW: ${{ secrets.CLOUDFLARE_ROUTE_WWW }}
-
       - name: Run typecheck
         run: pnpm typecheck
 
@@ -45,8 +36,19 @@ jobs:
         run: pnpm --filter web build
 
       - name: Run tests
-        run: pnpm test
+        # Run workspace tests sequentially in CI to avoid conflicts
+        run: pnpm -r --workspace-concurrency=1 test
 
+      # Tests (worker Vitest + Playwright webServer) can regenerate `apps/worker/wrangler.jsonc`
+      # with placeholder values. Regenerate it strictly with real secrets before migrations/deploy.
+      - name: Generate wrangler.jsonc
+        run: pnpm wrangler:gen
+        env:
+          WRANGLER_GEN_STRICT: '1'
+          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
+          CLOUDFLARE_ZONE_NAME: ${{ secrets.CLOUDFLARE_ZONE_NAME }}
+          CLOUDFLARE_ROUTE_WODBRAINS: ${{ secrets.CLOUDFLARE_ROUTE_WODBRAINS }}
+          CLOUDFLARE_ROUTE_WWW: ${{ secrets.CLOUDFLARE_ROUTE_WWW }}
 
       - name: Apply D1 migrations
         uses: cloudflare/wrangler-action@v3
