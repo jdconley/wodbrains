@@ -38,6 +38,12 @@ jobs:
       - name: Run tests
         # Run workspace tests sequentially in CI to avoid conflicts
         run: pnpm -r --workspace-concurrency=1 test
+        env:
+          WRANGLER_GEN_STRICT: '1'
+          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
+          CLOUDFLARE_ZONE_NAME: ${{ secrets.CLOUDFLARE_ZONE_NAME }}
+          CLOUDFLARE_ROUTE_WODBRAINS: ${{ secrets.CLOUDFLARE_ROUTE_WODBRAINS }}
+          CLOUDFLARE_ROUTE_WWW: ${{ secrets.CLOUDFLARE_ROUTE_WWW }}
 
       # Tests (worker Vitest + Playwright webServer) can regenerate `apps/worker/wrangler.jsonc`
       # with placeholder values. Regenerate it strictly with real secrets before migrations/deploy.
