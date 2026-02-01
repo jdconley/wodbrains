@@ -1,0 +1,18 @@
+# WOD Brains
+
+WOD Brains is a workout timer generator that turns workouts into smart timers.
+
+## What it does
+- Accepts workout descriptions via text, URL, or image
+- Parses workout structure (rounds, intervals, exercises)
+- Generates smart timers with automatic counting, splits, and cues
+
+## Key pages
+- / - Create a timer (paste workout, drop image, or URL)
+- /about - About WOD Brains
+- /workouts - Saved workouts
+- /w/{id} - View/start a saved workout timer
+- /r/{id} - Active timer session
+
+## API
+POST /api/parse - Parse workout text/image into timer structure

@@ -1,0 +1,9 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# pnpm v10 supply-chain safety: allow required postinstall builds
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - workerd

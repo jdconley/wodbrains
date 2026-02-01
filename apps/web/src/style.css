@@ -1,0 +1,3050 @@
+:root {
+  /* Backgrounds */
+  --bg-deep: #0a0a0a;
+  --bg-surface: #141414;
+  --bg-elevated: #1a1a1a;
+  --bg-overlay: rgba(0, 0, 0, 0.85);
+
+  /* Text */
+  --text: #ffffff;
+  --text-muted: #9a9a9a; /* WCAG AA compliant: 5.7:1 contrast ratio */
+  --text-inverse: #000000;
+
+  /* Accent */
+  --accent: #ff10f0;
+  --accent-dim: #cc0dc0;
+  --accent-glow: rgba(255, 16, 240, 0.4);
+  --accent-subtle: rgba(255, 16, 240, 0.1);
+
+  /* Status */
+  --danger: #ff3b3b;
+  --danger-subtle: rgba(255, 59, 59, 0.1);
+
+  /* Border (for inputs only) */
+  --border: #262626;
+
+  /* Separators + list highlights */
+  --separator: rgba(255, 255, 255, 0.08);
+  --list-highlight: rgba(255, 255, 255, 0.04);
+
+  /* Spacing scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  /* Content insets */
+  --content-pad-x: var(--space-md);
+  --content-pad-y: var(--space-lg);
+
+  /* Border radius scale */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-full: 999px;
+
+  /* Desktop CTA sizing */
+  --primary-cta-desktop-width: 360px;
+
+  color-scheme: dark;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  line-height: 1.4;
+  font-weight: 450;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---- Accessibility ---- */
+
+/* Skip link for keyboard navigation */
+.SkipLink {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--accent);
+  color: var(--text-inverse);
+  padding: 8px 16px;
+  z-index: 1000;
+  text-decoration: none;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+}
+
+.SkipLink:focus {
+  top: 0;
+}
+
+/* Focus visible for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Remove focus ring for mouse users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Visually hidden but accessible to screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Zoom and font scaling support (WCAG 1.4.4, 1.4.10, 1.4.12) */
+
+/* Ensure text doesn't overflow containers at large font sizes */
+.CountdownNumber,
+.RepCelebrationNumber {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Ensure tap targets remain accessible at zoom (44x44px minimum) */
+.DefinitionAction,
+.TimerPauseBtn,
+.TimerControlBtn,
+.AppHeaderBackBtn,
+.AppHeaderIconBtn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Prevent text clipping at large sizes */
+.TimerMeta,
+.PageTitle,
+.DefinitionTitle {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* Ensure overlays remain usable at zoom */
+.RunInfoOverlay,
+.RunSplitOverlay,
+.RunFinishOverlay,
+.ConfirmDialog,
+.GenerateOverlay {
+  overflow: auto;
+}
+
+/* Ensure cards scroll if content overflows at zoom */
+.RunInfoCard,
+.RunSplitCard,
+.RunFinishCard,
+.ConfirmDialogCard {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-deep);
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+#app {
+  min-height: 100%;
+}
+
+/* ---- Shared App Header ---- */
+.AppHeader {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  align-items: center;
+  /* Keep 44px hit targets, align icon glyphs to content inset edge */
+  padding: var(--space-md) var(--content-pad-x);
+  padding-bottom: 0;
+  transition: opacity 0.3s ease-out;
+}
+
+.AppHeader.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.AppHeaderBack {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 44px;
+  flex: 0 0 auto;
+}
+
+.AppHeaderCenter {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  max-width: calc(100% - 160px);
+}
+
+.AppHeaderBackBtn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s;
+}
+
+.AppHeaderBackBtn:hover {
+  color: var(--text);
+  background: transparent;
+}
+
+.AppHeaderBackBtn:active {
+  transform: translateY(1px);
+  color: var(--text);
+  background: transparent;
+}
+
+.AppHeaderBackBtn svg {
+  flex-shrink: 0;
+}
+
+.AppHeaderIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    transform 0.15s;
+}
+
+.AppHeaderIconBtn:hover {
+  color: var(--text);
+  background: transparent;
+}
+
+.AppHeaderIconBtn:active {
+  transform: translateY(1px);
+  color: var(--text);
+  background: transparent;
+}
+
+/* Only show hover backgrounds on devices that actually hover */
+@media (hover: hover) {
+  .AppHeaderBackBtn:hover {
+    background: var(--bg-elevated);
+  }
+
+  .AppHeaderIconBtn:hover {
+    background: var(--bg-elevated);
+  }
+}
+
+.AppHeaderIconBtn svg {
+  flex-shrink: 0;
+}
+
+.AppHeaderTitle {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(16px, 4vw, 20px);
+  line-height: 1.1;
+  color: var(--text);
+  text-align: center;
+  padding: 0 var(--space-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.AppHeaderTitleWithLogo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.AppHeaderTitleWithLogo .AppHeaderTitle {
+  min-width: 0;
+}
+
+.AppHeaderTitleLogo {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.AppHeaderTitleInput {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: clamp(16px, 4vw, 20px);
+  line-height: 1.2;
+  color: var(--text);
+  text-align: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 6px var(--space-xs);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  transition: background-color 0.15s;
+}
+
+.AppHeaderTitleInput::placeholder {
+  color: var(--text-muted);
+}
+
+.AppHeaderTitleInput:hover,
+.AppHeaderTitleInput:focus {
+  background: var(--bg-elevated);
+}
+
+.AppHeaderLogo {
+  display: flex;
+  justify-content: center;
+}
+
+.AppHeaderLogo img {
+  width: 40px;
+  height: 40px;
+}
+
+.AppHeaderBrand {
+  text-decoration: none;
+  display: none; /* Shown on desktop (and Import home override) */
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+
+.AppHeaderBrand .BrandName {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.AppHeaderBrand .AppHeaderBrandLogo {
+  width: 40px;
+  height: 40px;
+}
+
+.AppHeaderRight {
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+/* Page transition animation */
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.AppShell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  animation: pageIn 0.2s ease-out;
+}
+
+.TopBar {
+  padding: 20px 20px 0;
+}
+
+.Brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.BrandMark {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.BrandMark img {
+  width: 100%;
+  height: 100%;
+}
+
+.BrandName {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: 20px;
+  color: var(--text);
+}
+
+.BrandTagline {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.Main {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+}
+
+.Card {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.H2 {
+  margin: 0 0 16px;
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  letter-spacing: -0.02em;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ImportGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.Field {
+  display: grid;
+  gap: 8px;
+}
+
+.FieldFull {
+  grid-column: 1 / -1;
+}
+
+.FieldLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.Input,
+.Textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-deep);
+  color: var(--text);
+  padding: 12px 14px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.Input:focus,
+.Textarea:focus {
+  border-color: var(--accent);
+}
+
+.Input::placeholder,
+.Textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.Textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.Row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.RowTight {
+  margin-top: 0;
+}
+
+.MiniBtn {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.RecentCard {
+  width: min(480px, 100%);
+  padding: var(--space-md);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.RecentList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+}
+
+.RecentItem {
+  text-align: left;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 12px 0;
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  border-bottom: 1px solid var(--separator);
+  min-height: 44px;
+  width: 100%;
+}
+
+.RecentItem:last-child {
+  border-bottom: none;
+}
+
+.RecentTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.RecentMeta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.InfiniteSentinel {
+  height: 1px;
+}
+
+.Status {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.Status[data-tone='error'] {
+  color: var(--danger);
+}
+
+.Status[data-tone='ok'] {
+  color: var(--accent);
+}
+
+.Status .ErrorTitle {
+  font-weight: 700;
+  margin: 10px 0 6px;
+}
+
+/* Connection issue pill */
+.ConnectionPill {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 210;
+}
+
+.ConnectionPill.visible {
+  display: inline-flex;
+}
+
+.ConnectionPill[data-kind='network'] {
+  background: var(--danger-subtle);
+  color: var(--danger);
+}
+
+.ConnectionPill[data-kind='server'] {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.ConnectionPill[data-kind='rate'] {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+.Status .ErrorTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.Status .ErrorTable th,
+.Status .ErrorTable td {
+  padding: 6px 0;
+  vertical-align: top;
+}
+
+.Status .ErrorTable th {
+  width: 120px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.PrimaryBtn,
+.SecondaryBtn,
+.GhostBtn,
+.DangerBtn {
+  border: 0;
+  border-radius: var(--radius-full);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 20px;
+  min-height: 44px; /* WCAG 2.5.5 minimum tap target */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s,
+    transform 0.15s;
+}
+
+.PrimaryBtn {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+/* Primary CTA sizing (shared across pages) */
+.CtaBtn {
+  width: 100%;
+  max-width: none;
+}
+
+.PrimaryBtn:hover:not(:disabled) {
+  background: var(--accent-dim);
+}
+
+.SecondaryBtn {
+  background: var(--bg-elevated);
+  border: none;
+  color: var(--text);
+}
+
+.SecondaryBtn:hover:not(:disabled) {
+  background: var(--bg-surface);
+}
+
+.GhostBtn {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+}
+
+.GhostBtn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg-elevated);
+}
+
+.DangerBtn {
+  background: var(--danger);
+  color: var(--text-inverse);
+}
+
+.DangerBtn:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.PrimaryBtn:active:not(:disabled),
+.SecondaryBtn:active:not(:disabled),
+.GhostBtn:active:not(:disabled),
+.DangerBtn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.PrimaryBtn:disabled,
+.SecondaryBtn:disabled,
+.GhostBtn:disabled,
+.DangerBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.Examples {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ExampleCard {
+  text-align: left;
+  padding: var(--space-md);
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.ExampleCard:hover {
+  background: var(--bg-surface);
+}
+
+.ExampleTitle {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.ExampleHint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.List {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding-left: 0;
+  color: var(--text);
+  list-style: none;
+}
+
+.List > li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--separator);
+}
+
+.List > li:last-child {
+  border-bottom: none;
+}
+
+.List .List {
+  margin-top: var(--space-xs);
+  padding-left: var(--space-md);
+}
+
+.PreviewMeta {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+/* ---- Import screen (unified input) ---- */
+.ImportShell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-deep);
+  animation: pageIn 0.2s ease-out;
+}
+
+.ImportShell .ImportContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  gap: var(--space-md);
+}
+
+.UnifiedInput {
+  position: relative;
+  width: 100%;
+}
+
+.UnifiedTextarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 16px;
+  padding-right: 56px;
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+  background: var(--bg-surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.UnifiedTextarea::placeholder {
+  color: var(--text-muted);
+}
+
+.UnifiedTextarea:focus {
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+.UnifiedInput.dragover .UnifiedTextarea {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.FileButton {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.FileButton:hover {
+  background: var(--bg-surface);
+  color: var(--accent);
+}
+
+.DropOverlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: var(--accent-subtle);
+  pointer-events: none;
+}
+
+.DropOverlay span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.UnifiedInput.dragover .DropOverlay {
+  display: flex;
+}
+
+.FileIndicator {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.FileIndicatorName {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.FileIndicatorClear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.FileIndicatorClear:hover {
+  color: var(--danger);
+}
+
+.ImportBtn {
+  width: 100%;
+}
+
+.PreviewCard {
+  width: min(480px, 100%);
+  padding: var(--space-md);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+.PreviewCard .PreviewMeta {
+  margin-bottom: 8px;
+}
+
+.PreviewCard .PreviewSteps {
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.PreviewCard .List {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+}
+
+/* ---- Run screen ---- */
+.RunShell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  position: relative;
+  background: var(--bg-deep);
+  animation: pageIn 0.2s ease-out;
+}
+
+.RunShell .AppHeader {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+}
+
+.RunFooter {
+  padding: 16px 20px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.RunMain {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.Timer {
+  /* Center the timer absolutely in the viewport */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+
+  display: inline-block;
+  max-width: calc(100vw - 40px);
+
+  /* Responsive sizing for the whole timer "stack" (top meta + timer + bottom control).
+     Total stack height is roughly: timer (0.9em) + top meta + gaps + split + controls (~1.6em of meta).
+     So total is about 2.5x timerFontSize. Use 2.8 divisor for safety margin. */
+  --timerFontSize: clamp(48px, calc((100vw - 40px) / 6), min(280px, calc((100dvh - 60px) / 2.8)));
+  --timerMetaSize: max(24px, calc(var(--timerFontSize) * 0.32));
+  --timerMetaGap: clamp(6px, calc(var(--timerFontSize) * 0.08), 24px);
+}
+
+.TimerMeta {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: fit-content;
+  max-width: calc(100vw - 40px);
+  text-align: center;
+  white-space: nowrap;
+
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: var(--timerMetaSize);
+  line-height: 1.05;
+  color: var(--text);
+}
+
+.TimerMeta--top {
+  bottom: calc(100% + var(--timerMetaGap));
+}
+
+.TimerMeta--bottom {
+  top: calc(100% + var(--timerMetaGap));
+  display: flex;
+  justify-content: center;
+}
+
+.TimerMetaLine {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0;
+  white-space: nowrap;
+}
+
+.TimerMetaStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.TimerRepCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--text);
+  animation: repBump 0.18s ease;
+}
+
+.TimerRepPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--bg-elevated);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  animation: repBump 0.18s ease;
+}
+
+.TimerLeaderNote {
+  margin-top: var(--space-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.TimerSplitBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s;
+  animation: repBump 0.18s ease;
+}
+
+.TimerSplitBtn:hover {
+  color: var(--text);
+}
+
+.TimerSplitBtn:active {
+  opacity: 0.8;
+}
+
+/* Inline variant when next to rep counter in top meta */
+.TimerSplitBtn--inline {
+  margin-left: 0.4em;
+  font-size: calc(var(--timerMetaSize) * 0.5);
+}
+
+@keyframes repBump {
+  0% {
+    transform: scale(0.96);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.TimerInfoBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    transform 0.15s;
+}
+
+.TimerInfoBtn:hover {
+  color: var(--text);
+  background: var(--bg-surface);
+}
+
+.TimerInfoBtn:active {
+  transform: scale(0.98);
+}
+
+/* Superscript variant (tied to the meta font size) */
+.TimerInfoBtn--sup {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  transform: translateY(-5%);
+  width: 0.5em;
+  height: 0.5em;
+  min-width: 18px;
+  min-height: 18px;
+  font-size: 0.4em;
+  margin-left: 0.4em;
+}
+
+.TimerInfoBtn--sup:active {
+  transform: translateY(-5%) scale(0.98);
+}
+
+.TimerInfoBtn--sup svg {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+.TimerPauseBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Size relative to meta text (rounds) for consistency */
+  font-size: var(--timerMetaSize);
+  width: 1.4em;
+  height: 1.4em;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    transform 0.15s;
+}
+
+.TimerPauseBtn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg-surface);
+}
+
+.TimerPauseBtn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.TimerPauseBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.TimerPauseBtn svg {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+/* Optical centering for play icon (triangle appears left-shifted without offset) */
+.TimerPauseBtn--play svg {
+  transform: translateX(6%);
+}
+
+/* Control button row (when paused) */
+.TimerControlRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.TimerControlBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--timerMetaSize);
+  width: 1.4em;
+  height: 1.4em;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    transform 0.15s;
+}
+
+.TimerControlBtn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg-surface);
+}
+
+.TimerControlBtn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.TimerControlBtn svg {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+/* Resume button - accent color */
+.TimerControlBtn--resume {
+  background: var(--accent);
+  color: var(--text-inverse);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.TimerControlBtn--resume:hover:not(:disabled) {
+  background: var(--accent-dim);
+  color: var(--text-inverse);
+}
+
+/* Optical centering for play icon */
+.TimerControlBtn--resume svg {
+  transform: translateX(8%);
+}
+
+/* Reset button - secondary style */
+.TimerControlBtn--reset {
+  color: var(--text-muted);
+}
+
+.TimerControlBtn--reset:hover:not(:disabled) {
+  color: var(--text);
+}
+
+/* Stop button - danger style on hover */
+.TimerControlBtn--stop {
+  color: var(--text-muted);
+}
+
+.TimerControlBtn--stop:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--danger-subtle);
+}
+
+.RunShell .Status {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* ---- Toasts (global status) ---- */
+.ToastHost {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 220;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.Toast {
+  pointer-events: none;
+  padding: 10px 14px;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  opacity: 1;
+  transition:
+    opacity 0.15s ease-out,
+    transform 0.15s ease-out;
+}
+
+.Toast[data-tone='ok'] {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.Toast[data-tone='error'] {
+  background: var(--danger-subtle);
+  color: var(--danger);
+}
+
+.Toast--hide {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.SegmentLabel {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Group display for timer */
+.GroupTitle {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.GroupSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  text-align: center;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.GroupStep {
+  font-size: 14px;
+  color: var(--text-muted);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--separator);
+}
+
+.GroupStep:last-child {
+  border-bottom: none;
+}
+.GroupStep--active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+@media (hover: hover) {
+  .RecentItem:hover,
+  .RunSplitRow:hover,
+  .RunFinishSplitRow:hover,
+  .RunInfoItem:hover,
+  .BuilderTree > .BuilderNode:hover,
+  .BuilderNodeChildren > .BuilderNode:hover,
+  .GroupStep:hover,
+  .List > li:hover {
+    background: var(--list-highlight);
+  }
+}
+
+.RecentItem:active,
+.RunSplitRow:active,
+.RunFinishSplitRow:active,
+.RunInfoItem:active,
+.BuilderTree > .BuilderNode:active,
+.BuilderNodeChildren > .BuilderNode:active,
+.GroupStep:active,
+.List > li:active {
+  background: var(--list-highlight);
+}
+
+.TimerValue {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  /* Fill width for XX:XX:XX.X format (10 chars, monospace ~0.6 width ratio) */
+  font-size: var(--timerFontSize);
+  line-height: 0.9;
+  text-align: center;
+  color: var(--accent);
+}
+
+.CounterInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.CounterText {
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.CounterSeparator {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.CounterInfoBtn--inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s;
+  flex-shrink: 0;
+}
+
+.CounterInfoBtn--inline:hover {
+  color: var(--text);
+  background: var(--bg-surface);
+}
+
+.CounterInfoBtn--inline:active {
+  transform: translateY(1px);
+}
+
+.CounterInfoBtn--inline svg {
+  flex-shrink: 0;
+}
+
+.CounterPauseBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s;
+  flex-shrink: 0;
+}
+
+.CounterPauseBtn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg-surface);
+}
+
+.CounterPauseBtn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.CounterPauseBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.CounterPauseBtn svg {
+  flex-shrink: 0;
+}
+
+/* Footer fade when running */
+.RunFooter {
+  transition: opacity 0.5s ease-out;
+}
+
+.RunShell.running .RunFooter {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Start overlay (shown when idle) */
+.RunStartOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-overlay);
+  z-index: 100;
+  opacity: 1;
+  transition: opacity 0.3s ease-out;
+}
+
+.RunStartOverlayContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  text-align: center;
+}
+
+.RunStartShareBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  font-size: 14px;
+}
+
+.RunStartOverlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.StartOverlayText {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-size: clamp(18px, 5vw, 32px);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Countdown overlay for 3/2/1/GO */
+.RunCountdownOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-overlay);
+  z-index: 110;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease-out;
+}
+
+.RunCountdownOverlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.CountdownNumber {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  /* Constrain by both width and height for wide/short viewports */
+  font-size: clamp(80px, min(40vw, 55dvh), 400px);
+  font-weight: 900;
+  color: var(--accent);
+  text-shadow: 0 0 60px var(--accent-glow);
+}
+
+.CountdownNumber.prep {
+  font-size: clamp(48px, min(22vw, 28dvh), 220px);
+  font-weight: 700;
+  color: var(--text-muted);
+  text-shadow: none;
+  letter-spacing: 0.08em;
+}
+
+@keyframes countdownPulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.CountdownNumber.animate {
+  animation: countdownPulse 0.8s ease-out;
+}
+
+/* Corner role/presence/timeScale */
+.RunCornerInfo {
+  position: fixed;
+  top: var(--space-md);
+  right: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  z-index: 120;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.RunCornerInfo.hidden {
+  display: none;
+}
+
+.RunHeaderAction--hidden {
+  display: none !important;
+}
+
+.RunCornerLine {
+  white-space: nowrap;
+}
+
+.RunCornerScale {
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.RunCornerScale.hidden {
+  display: none;
+}
+
+.RunCornerScale:disabled {
+  opacity: 0.5;
+}
+
+/* Tap hint (fades in after timer starts, positioned to not occlude timer) */
+.RunTapHint {
+  position: fixed;
+  bottom: 100px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 1s ease-in-out;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.RunTapHint.visible {
+  opacity: 1;
+}
+
+/* Rep celebration overlay (big animated display when counting reps) */
+.RunRepCelebrationOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-overlay);
+  z-index: 115;
+  opacity: 0;
+  pointer-events: none;
+  gap: 16px;
+}
+
+.RunRepCelebrationOverlay.active {
+  animation: repCelebrationFade 2.5s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes repCelebrationFade {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.RepCelebrationNumber {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  /* Constrain by both width and height for wide/short viewports */
+  font-size: clamp(80px, min(45vw, 55dvh), 450px);
+  font-weight: 900;
+  color: var(--accent);
+  text-shadow:
+    0 0 80px var(--accent-glow),
+    0 0 160px var(--accent-glow);
+  line-height: 0.85;
+}
+
+.RunRepCelebrationOverlay.active .RepCelebrationNumber {
+  animation: repNumberPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes repNumberPop {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.RepCelebrationSplit {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  /* Constrain by both width and height for wide/short viewports */
+  font-size: clamp(18px, min(8vw, 12dvh), 64px);
+  font-weight: 700;
+  color: var(--text);
+  opacity: 0.9;
+}
+
+.RunRepCelebrationOverlay.active .RepCelebrationSplit {
+  animation: repSplitSlide 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s forwards;
+  opacity: 0;
+}
+
+@keyframes repSplitSlide {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 0.9;
+  }
+}
+
+/* Info overlay (timer details) */
+.RunInfoOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-overlay);
+  z-index: 105;
+  padding: 24px;
+}
+
+.RunInfoOverlay.hidden {
+  display: none;
+}
+
+/* Split overlay (bottom sheet) */
+.RunSplitOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--bg-overlay);
+  z-index: 106;
+  padding: 24px;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+
+.RunSplitOverlay.hidden {
+  display: none;
+}
+
+.RunSplitCard {
+  width: min(520px, 100%);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--bg-surface);
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.RunSplitHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.RunSplitTitle {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.RunSplitList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: min(50vh, 360px);
+  overflow: auto;
+}
+
+.RunSplitRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--separator);
+}
+
+.RunSplitRow:last-child {
+  border-bottom: none;
+}
+
+.RunSplitIndex {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.RunSplitTimes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.RunSplitElapsed {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.RunSplitDelta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.RunSplitEmpty {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 12px 0;
+  border-bottom: none;
+}
+
+/* Finish summary overlay */
+.RunFinishOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-overlay);
+  z-index: 120;
+  padding: 24px;
+}
+
+.RunFinishOverlay.hidden {
+  display: none;
+}
+
+.RunFinishCard {
+  width: min(480px, 100%);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--bg-surface);
+  padding: var(--space-lg);
+  display: grid;
+  gap: 20px;
+}
+
+.RunFinishHeader {
+  text-align: center;
+}
+
+.RunFinishTitle {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+
+.RunFinishStats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.RunFinishStat {
+  text-align: center;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+
+.RunFinishStatValue {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.RunFinishStatLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+.RunFinishSplits {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.RunFinishSplitRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--separator);
+}
+
+.RunFinishSplitRow:last-child {
+  border-bottom: none;
+}
+
+.RunFinishSplitIndex {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.RunFinishSplitTimes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.RunFinishSplitElapsed {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.RunFinishSplitDelta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.RunFinishActions {
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.RunFinishActions .PrimaryBtn {
+  min-width: 120px;
+}
+
+.RunInfoCard {
+  width: min(520px, 100%);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--bg-surface);
+  padding: 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.RunInfoHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.RunInfoTitle {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: 18px;
+}
+
+.RunInfoList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: min(50vh, 360px);
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.RunInfoItem {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.35;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--separator);
+}
+
+.RunInfoItem:last-child {
+  border-bottom: none;
+}
+.RunInfoItem--active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---- Shared Page Layout ---- */
+.PageShell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-deep);
+  animation: pageIn 0.2s ease-out;
+}
+
+.PageContent {
+  flex: 1;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--content-pad-y) var(--content-pad-x);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.PageFooter {
+  display: none; /* Hidden on mobile */
+  padding: 24px 20px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.FooterTagline {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.FooterLinks {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.FooterDivider {
+  color: var(--text-muted);
+}
+
+.FooterCopyright {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.FooterLink {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.FooterLink:hover,
+.FooterLink:focus {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* ---- About page ---- */
+.AboutContent {
+  gap: var(--space-lg);
+}
+
+.AboutHero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.AboutLogo {
+  width: 88px;
+  height: 88px;
+  flex-shrink: 0;
+}
+
+.AboutHeroText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.AboutIntro {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+.AboutSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.AboutSectionTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.AboutBody {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.AboutList {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-muted);
+}
+
+.AboutActions {
+  /* Match Definition-style “actions at bottom” behavior on mobile */
+  margin-top: auto;
+  padding-top: var(--space-lg);
+  padding-bottom: var(--space-sm);
+  display: flex;
+  width: 100%;
+}
+
+.AboutActions .PrimaryBtn {
+  /* width comes from .CtaBtn (or default button sizing) */
+}
+
+/* ---- Definition screen (app-style) ---- */
+.DefinitionShell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-deep);
+  animation: pageIn 0.2s ease-out;
+}
+
+.DefinitionContent {
+  flex: 1;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--content-pad-y) var(--content-pad-x);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.DefinitionTitle {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-size: clamp(22px, 4vw, 32px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.DefinitionWorkout {
+  width: min(560px, 100%);
+}
+
+.DefinitionWorkout .List {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.DefinitionContent .Status {
+  position: static;
+  margin-top: 8px;
+}
+
+.DefinitionActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  /* On mobile, push to bottom with margin-top auto */
+  margin-top: auto;
+  padding: var(--space-lg) 0 var(--space-xl);
+}
+
+.DefinitionAction {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    transform 0.15s;
+}
+
+.DefinitionGetSetBtn {
+  width: 100%;
+  /* Full width on mobile (match Import “Generate timer” button) */
+  max-width: none;
+  justify-content: center;
+}
+
+@media (min-width: 1200px) {
+  .DefinitionGetSetBtn,
+  .CtaBtn {
+    width: min(var(--primary-cta-desktop-width), 100%);
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+.DefinitionAction svg {
+  width: 1.1em;
+  height: 1.1em;
+  flex-shrink: 0;
+}
+
+.DefinitionAction:active {
+  transform: translateY(1px);
+}
+
+.DefinitionAction--start {
+  background: var(--accent);
+  color: var(--text-inverse);
+  border-color: transparent;
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.DefinitionAction--start:hover:not(:disabled) {
+  background: var(--accent-dim);
+}
+
+.DefinitionAction--edit:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg-surface);
+}
+
+.DefinitionAction:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Page-level card for details pages */
+.PageCard {
+  padding: var(--space-md);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.PageCardTitle {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.PageTitle {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-size: clamp(22px, 4vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0;
+}
+
+.PageCardMeta {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.PageCardActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+/* ---- Builder UI (inline sentence style) ---- */
+.BuilderTree {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.BuilderNode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0;
+  border: none;
+  border-bottom: 1px solid var(--separator);
+  background: transparent;
+  flex-wrap: wrap;
+}
+
+.BuilderNode--note {
+  align-items: flex-start;
+}
+
+.BuilderTree > .BuilderNode:last-of-type,
+.BuilderNodeChildren > .BuilderNode:last-of-type {
+  border-bottom: none;
+}
+
+.BuilderNode--chosen {
+  background: var(--list-highlight);
+  border-radius: 0;
+  box-shadow: none;
+  z-index: 10;
+}
+
+.BuilderNode--ghost {
+  opacity: 0.4;
+}
+
+.BuilderNode--drag {
+  opacity: 0;
+}
+
+/* Drag handle */
+.DragHandle {
+  cursor: grab;
+  color: var(--text-muted);
+  opacity: 0.4;
+  user-select: none;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px;
+  transition: opacity 0.15s;
+}
+
+.DragHandle:hover {
+  opacity: 1;
+}
+
+.DragHandle:active {
+  cursor: grabbing;
+}
+
+/* Block keywords and text */
+.BlockKeyword {
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.BlockText {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* Inline inputs that blend with text */
+.InlineInput {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  padding: 4px 6px;
+  border-radius: 4px;
+  min-width: 40px;
+  outline: none;
+  transition: background 0.15s;
+}
+
+.InlineInput:hover {
+  background: var(--bg-elevated);
+}
+
+.InlineInput:focus {
+  background: var(--bg-elevated);
+  outline: 1px solid var(--accent);
+}
+
+.InlineInput::placeholder {
+  color: var(--text-muted);
+}
+
+.InlineTextarea {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  padding: 4px 6px;
+  border-radius: 4px;
+  min-width: 120px;
+  min-height: 28px;
+  flex: 1;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.4;
+  outline: none;
+  transition: background 0.15s;
+}
+
+.InlineTextarea:hover {
+  background: var(--bg-elevated);
+}
+
+.InlineTextarea:focus {
+  background: var(--bg-elevated);
+  outline: 1px solid var(--accent);
+}
+
+.InlineTextarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* Expandable label input fills remaining space */
+.InlineInput--label {
+  flex: 1;
+  min-width: 100px;
+}
+
+/* Small fixed-width inputs for numbers */
+.InlineInput--number {
+  width: 48px;
+  text-align: center;
+}
+
+/* Time inputs */
+.InlineInput--time {
+  width: 64px;
+  text-align: center;
+}
+
+/* Title input at top */
+.InlineInput--title {
+  font-size: 18px;
+  font-weight: 600;
+  padding: 8px 0;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+/* Scoring row */
+.ScoringRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.ScoringFields {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Delete button - appears on hover */
+.DeleteBtn {
+  opacity: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 14px;
+  line-height: 1;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.BuilderNode:hover .DeleteBtn {
+  opacity: 0.5;
+}
+
+.DeleteBtn:hover {
+  opacity: 1 !important;
+  color: var(--danger);
+}
+
+/* Children container with left accent bar */
+.BuilderNodeChildren {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: 24px;
+  margin-top: 4px;
+  padding-left: 16px;
+  border-left: 2px solid var(--accent);
+}
+
+/* ---- Minimal add button ---- */
+.AddBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-family: inherit;
+  padding: 8px 0;
+  padding-inline: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.AddBtn:hover {
+  color: var(--text);
+}
+
+.AddBlockSplit {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  margin-left: 0;
+  padding-left: 0;
+  margin-top: 8px;
+}
+
+.AddBlockMain {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.AddBlockDropdown {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: none;
+  padding: 0 10px;
+}
+
+.AddBlockMenu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 140px;
+  z-index: 50;
+}
+
+.AddBlockMenu.hidden {
+  display: none;
+}
+
+.AddBlockMenu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.AddBlockMenu button:hover {
+  background: var(--bg-surface);
+}
+
+/* Editor-specific page card (no border) */
+.PageCard--editor {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+/* ---- Confirmation dialog ---- */
+.ConfirmDialog {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-overlay);
+  z-index: 120;
+  padding: 24px;
+}
+
+.ConfirmDialog.hidden {
+  display: none;
+}
+
+.ConfirmDialogCard {
+  width: min(400px, 100%);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--bg-surface);
+  padding: 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.ConfirmDialogTitle {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.ConfirmDialogDescription {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* ---- Timer overlay ---- */
+.TimerOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-overlay);
+  z-index: 120;
+  padding: 24px;
+}
+
+.TimerOverlay.hidden {
+  display: none;
+}
+
+.TimerOverlayCard {
+  width: min(520px, 100%);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--bg-surface);
+  padding: 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.TimerOverlayHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.TimerOverlayTitle {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  flex: 1;
+}
+
+.TimerOverlayDescription {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.TimerOverlayWorkout .List {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* ---- Icon buttons ---- */
+.IconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.IconBtn svg {
+  flex-shrink: 0;
+}
+
+/* Icon-only variant (square) */
+.IconBtn--square {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+
+/* Smaller icon-only variant */
+.IconBtn--square.MiniBtn {
+  width: 32px;
+  height: 32px;
+}
+
+/* ---- Generate loading overlay ---- */
+.GenerateOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-overlay);
+  z-index: 200;
+  opacity: 1;
+  transition: opacity 0.3s ease-out;
+}
+
+.GenerateOverlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.GenerateOverlayContent {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.GenerateLogo {
+  width: 80px;
+  height: 80px;
+  animation: logoBounce 1.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 20px var(--accent-glow));
+}
+
+@keyframes logoBounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-12px) scale(1.08);
+  }
+}
+
+.GenerateText {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.SparkleContainer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.Sparkle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow:
+    0 0 6px var(--accent),
+    0 0 12px var(--accent-glow);
+  animation: sparkle 1.5s ease-out forwards;
+}
+
+.Sparkle--white {
+  background: #fff;
+  box-shadow:
+    0 0 6px #fff,
+    0 0 12px rgba(255, 255, 255, 0.5);
+}
+
+.Sparkle--small {
+  width: 4px;
+  height: 4px;
+}
+
+.Sparkle--large {
+  width: 12px;
+  height: 12px;
+}
+
+@keyframes sparkle {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1) rotate(72deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0) rotate(360deg) translateY(-30px);
+  }
+}
+
+@media (max-width: 760px) {
+  .ImportGrid {
+    grid-template-columns: 1fr;
+  }
+  .Examples {
+    grid-template-columns: 1fr;
+  }
+  .Row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .CounterInline {
+    justify-content: center;
+  }
+}
+
+/* ---- Desktop Layout (1200px+) ---- */
+/* At large desktop sizes, use a more traditional web layout:
+   - Branded header with logo + name
+   - Hide back button (users can use browser back)
+   - Footer with copyright
+   - Buttons flow with content instead of being pushed to bottom */
+
+/* Desktop-only elements (hidden on mobile) */
+.DesktopOnly {
+}
+
+/* Mobile-only elements (hidden on desktop) */
+.MobileOnly {
+}
+
+@media (max-width: 1199px) {
+  .DesktopOnly {
+    display: none !important;
+  }
+}
+
+/* Desktop Header */
+/* Home page (import): show branded header and footer on mobile too */
+.ImportShell--home .AppHeaderBrand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ImportShell--home .AppHeader {
+  padding-top: calc(env(safe-area-inset-top) + var(--space-lg));
+}
+
+.ImportShell--home .AppHeaderLogo--center {
+  display: none;
+}
+
+.ImportShell--home .PageFooter {
+  display: block;
+}
+
+@media (min-width: 1200px) {
+  .MobileOnly {
+    display: none !important;
+  }
+
+  /* Header: keep app-like layout (with back) on desktop, aligned to card */
+  .AppHeader {
+    padding: var(--space-lg) var(--space-lg);
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  /* On desktop, show the brand and hide the center logo */
+  .AppHeaderBrand {
+    display: flex;
+  }
+
+  .AppHeaderLogo--center {
+    display: none;
+  }
+
+  /* Footer: visible on desktop */
+  .PageFooter {
+    display: block;
+    padding: var(--space-xl) var(--space-lg);
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    margin-top: auto;
+  }
+
+  /* Page shells: let content flow naturally, center horizontally */
+  .PageShell,
+  .DefinitionShell,
+  .ImportShell {
+    min-height: 100vh;
+    align-items: center; /* Center content horizontally */
+  }
+
+  /* Header and footer span full width */
+  .PageShell > .AppHeader,
+  .DefinitionShell > .AppHeader,
+  .ImportShell > .AppHeader,
+  .PageShell > .PageFooter,
+  .DefinitionShell > .PageFooter,
+  .ImportShell > .PageFooter {
+    width: 100%;
+  }
+
+  /* Content areas: card-like container on desktop */
+  .PageContent,
+  .DefinitionContent {
+    max-width: 600px;
+    padding: var(--space-xl) var(--space-lg);
+    background: var(--bg-surface);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+    margin-top: var(--space-lg);
+    margin-bottom: var(--space-lg);
+  }
+
+  .ImportShell .ImportContent {
+    flex: 0 1 auto;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: var(--space-xl) var(--space-lg);
+  }
+
+  /* Definition page: actions flow with content on desktop */
+  .DefinitionActions {
+    justify-content: center;
+    margin-top: var(--space-lg); /* Normal spacing, not pushed to bottom */
+    padding: var(--space-lg) 0;
+    gap: var(--space-md);
+  }
+
+  .DefinitionActions .DefinitionAction {
+    width: 56px;
+    height: 56px;
+  }
+
+  /* Definition content wrapper for desktop layout */
+  .DefinitionShell .DefinitionContent {
+    flex: 0 1 auto; /* Don't stretch to fill */
+  }
+
+  /* Timer edit page: already flows, just tweak spacing */
+  .PageShell .PageContent {
+    flex: 0 1 auto;
+  }
+}

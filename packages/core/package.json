@@ -1,0 +1,20 @@
+{
+  "name": "@wodbrains/core",
+  "version": "0.0.0",
+  "description": "",
+  "main": "./src/index.ts",
+  "scripts": {
+    "test": "pnpm -w exec vitest run",
+    "build": "pnpm -w exec tsc -p packages/core/tsconfig.json",
+    "typecheck": "pnpm -w exec tsc -p packages/core/tsconfig.json --noEmit",
+    "lint": "pnpm -w exec eslint packages/core"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "zod": "^4.3.6"
+  }
+}

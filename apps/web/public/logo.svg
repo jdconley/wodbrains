@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Left flexing arm -->
+  <path d="M18 58 Q8 54 10 44 Q12 36 20 38 L24 46 Q22 50 24 54 Z" fill="#F5A9B8"/>
+  <!-- Left bicep bulge -->
+  <ellipse cx="10" cy="41" rx="7" ry="6" fill="#F5A9B8"/>
+  <!-- Left arm muscle definition -->
+  <path d="M12 44 Q14 41 12 38" stroke="#E88A9A" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  <!-- Left fist -->
+  <ellipse cx="8" cy="38" rx="4" ry="3.5" fill="#F5A9B8"/>
+  
+  <!-- Right flexing arm -->
+  <path d="M82 58 Q92 54 90 44 Q88 36 80 38 L76 46 Q78 50 76 54 Z" fill="#F5A9B8"/>
+  <!-- Right bicep bulge -->
+  <ellipse cx="90" cy="41" rx="7" ry="6" fill="#F5A9B8"/>
+  <!-- Right arm muscle definition -->
+  <path d="M88 44 Q86 41 88 38" stroke="#E88A9A" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  <!-- Right fist -->
+  <ellipse cx="92" cy="38" rx="4" ry="3.5" fill="#F5A9B8"/>
+  
+  <!-- Brain body (softer peachy pink) -->
+  <path d="M30 75 Q18 68 22 52 Q18 42 28 35 Q32 24 44 22 Q50 18 56 22 Q68 24 72 35 Q82 42 78 52 Q82 68 70 75 Q60 82 50 80 Q40 82 30 75 Z" fill="#F5A9B8"/>
+  
+  <!-- Brain wrinkles/folds (subtle, around edges) -->
+  <path d="M36 26 Q44 21 50 23 Q56 21 64 26" stroke="#E88A9A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M30 34 Q36 30 42 32" stroke="#E88A9A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M58 32 Q64 30 70 34" stroke="#E88A9A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M24 48 Q22 56 26 64" stroke="#E88A9A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M76 48 Q78 56 74 64" stroke="#E88A9A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M34 72 Q42 76 50 74 Q58 76 66 72" stroke="#E88A9A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  
+  <!-- Big expressive eyes with detail -->
+  <!-- Left eye white -->
+  <ellipse cx="40" cy="46" rx="9" ry="10" fill="#fff"/>
+  <!-- Left eye iris -->
+  <ellipse cx="41" cy="47" rx="6" ry="7" fill="#3D2314"/>
+  <!-- Left eye pupil -->
+  <ellipse cx="42" cy="48" rx="3" ry="3.5" fill="#000"/>
+  <!-- Left eye main sparkle -->
+  <circle cx="38" cy="44" r="3" fill="#fff"/>
+  <!-- Left eye secondary sparkle -->
+  <circle cx="44" cy="50" r="1.5" fill="#fff"/>
+  
+  <!-- Right eye white -->
+  <ellipse cx="60" cy="46" rx="9" ry="10" fill="#fff"/>
+  <!-- Right eye iris -->
+  <ellipse cx="59" cy="47" rx="6" ry="7" fill="#3D2314"/>
+  <!-- Right eye pupil -->
+  <ellipse cx="58" cy="48" rx="3" ry="3.5" fill="#000"/>
+  <!-- Right eye main sparkle -->
+  <circle cx="56" cy="44" r="3" fill="#fff"/>
+  <!-- Right eye secondary sparkle -->
+  <circle cx="62" cy="50" r="1.5" fill="#fff"/>
+  
+  <!-- Eyebrows (cute curved) -->
+  <path d="M32 36 Q40 33 46 36" stroke="#3D2314" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M54 36 Q60 33 68 36" stroke="#3D2314" stroke-width="2" fill="none" stroke-linecap="round"/>
+  
+  <!-- Blush marks -->
+  <ellipse cx="30" cy="54" rx="5" ry="3" fill="#FF9EAF" opacity="0.7"/>
+  <ellipse cx="70" cy="54" rx="5" ry="3" fill="#FF9EAF" opacity="0.7"/>
+  
+  <!-- Open happy mouth -->
+  <path d="M42 60 Q50 70 58 60" fill="#3D2314"/>
+  <!-- Tongue -->
+  <ellipse cx="50" cy="65" rx="5" ry="4" fill="#FF6B8A"/>
+  <!-- Mouth highlight -->
+  <path d="M44 61 Q50 58 56 61" stroke="#5D3324" stroke-width="1" fill="none" stroke-linecap="round"/>
+</svg>

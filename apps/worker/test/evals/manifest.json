@@ -1,0 +1,41 @@
+[
+	{
+		"id": "street-parking-vault-image",
+		"kind": "image",
+		"path": "test-assets/evals/street-parking-vault.png",
+		"expect": {
+			"countdownDurationsMs": [360000, 180000, 360000],
+			"topLevelNoteIncludes": ["Suggestions", "Men:", "Women:"],
+			"nestedNoteExcludes": ["Suggestions"]
+		}
+	},
+	{
+		"id": "on-a-14-minute-clock-text",
+		"kind": "text",
+		"text": "On a 14 Minute Clock\n4 No Push Up Inchworm\n4 Push Up\n7 (R) Single Arm Dumbbell Bent Over Row\n7 (L) Single Arm Dumbbell Bent Over Row",
+		"expect": {
+			"countdownDurationsMs": [840000]
+		}
+	},
+	{
+		"id": "rounds-with-timed-movements-text",
+		"kind": "text",
+		"text": "4 Rounds\n1 Min Dumbbell Power Clean\n1 Min Dumbbell Squat\n1 Min Lateral Burpee Over Dumbbell\nRest 2 Minutes Between Rounds",
+		"expect": {
+			"topLevelRepeatRounds": 4,
+			"countdownDurationsMs": [60000, 60000, 60000, 120000],
+			"countdownTimersHaveNoChildren": true
+		}
+	},
+	{
+		"id": "sets-amrap-between-sets-text",
+		"kind": "text",
+		"text": "3 Sets\nEach Set is a 3 Min AMRAP\n(As Many Rounds and Reps As Possible in 3 Minutes)\n\n9 Dumbbell Hang Power Clean\n6 Air Squat\n3 Burpee\nRest 1 Minute Between Sets",
+		"expect": {
+			"topLevelRepeatRounds": 3,
+			"topLevelRepeatLabel": "Set",
+			"countdownDurationsMs": [180000, 60000],
+			"amrapCountdownHasStepsIncluding": ["Hang Power Clean", "Air Squat", "Burpee"]
+		}
+	}
+]

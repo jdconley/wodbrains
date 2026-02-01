@@ -1,0 +1,23 @@
+{
+  "name": "web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "pnpm -w exec tsc -p apps/web/tsconfig.json --noEmit",
+    "lint": "pnpm -w exec eslint apps/web",
+    "test": "pnpm -w exec playwright test"
+  },
+  "devDependencies": {
+    "@types/sortablejs": "^1.15.9",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.4"
+  },
+  "dependencies": {
+    "@wodbrains/core": "workspace:*",
+    "sortablejs": "^1.15.6"
+  }
+}
