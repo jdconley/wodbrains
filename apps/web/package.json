@@ -4,12 +4,18 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "typecheck": "pnpm -w exec tsc -p apps/web/tsconfig.json --noEmit",
-    "lint": "pnpm -w exec eslint apps/web",
-    "test": "pnpm -w exec playwright test"
+    "dev": "pnpm -w exec dotenvx run --quiet -f apps/web/.env.local -f apps/web/.env -f .env.local -f .env -- pnpm -C apps/web run _dev",
+    "_dev": "vite",
+    "build": "pnpm -w exec dotenvx run --quiet -f apps/web/.env.local -f apps/web/.env -f .env.local -f .env -- pnpm -C apps/web run _build",
+    "_build": "tsc && vite build",
+    "preview": "pnpm -w exec dotenvx run --quiet -f apps/web/.env.local -f apps/web/.env -f .env.local -f .env -- pnpm -C apps/web run _preview",
+    "_preview": "vite preview",
+    "typecheck": "pnpm -w exec dotenvx run --quiet -f apps/web/.env.local -f apps/web/.env -f .env.local -f .env -- pnpm -C apps/web run _typecheck",
+    "_typecheck": "pnpm -w exec tsc -p apps/web/tsconfig.json --noEmit",
+    "lint": "pnpm -w exec dotenvx run --quiet -f apps/web/.env.local -f apps/web/.env -f .env.local -f .env -- pnpm -C apps/web run _lint",
+    "_lint": "pnpm -w exec eslint apps/web",
+    "test": "pnpm -w exec dotenvx run --quiet -f apps/web/.env.local -f apps/web/.env -f .env.local -f .env -- pnpm -C apps/web run _test",
+    "_test": "pnpm -w exec playwright test"
   },
   "devDependencies": {
     "@types/sortablejs": "^1.15.9",

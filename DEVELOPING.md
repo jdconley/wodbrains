@@ -6,6 +6,15 @@
 pnpm install
 ```
 
+### Environment variables (`dotenvx`)
+
+Package `package.json` scripts are executed through `dotenvx`, which loads env files when present.
+
+- **Package scripts** load (in order): `<package>/.env.local`, `<package>/.env`, then the workspace root `.env.local`, `.env`
+- The workspace root `wrangler:gen` script is also run through `dotenvx` (loads `.env.local`, then `.env`)
+
+Note: if a referenced file doesn’t exist, `dotenvx` will print `[MISSING_ENV_FILE]` lines but continue running.
+
 ### Apply local D1 migrations
 
 ```bash
