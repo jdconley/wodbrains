@@ -607,7 +607,9 @@ export function createApp() {
 					if (typeof parsedExisting?.id === 'string' && parsedExisting.id.trim()) {
 						existingWorkoutDefinitionId = parsedExisting.id;
 					}
-				} catch {}
+				} catch {
+					// ignore parse errors
+				}
 
 				const now = Date.now();
 				const upgraded = upgradeDefinitionData({

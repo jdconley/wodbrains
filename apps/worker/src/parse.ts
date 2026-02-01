@@ -436,7 +436,6 @@ export async function parseWorkout(
 		}
 	};
 
-	let rawModelText: string | undefined;
 	const parsePromise = (async () => {
 		let output: unknown;
 		let providerMetadata: any;
@@ -523,7 +522,7 @@ export async function parseWorkout(
 		throw parseOutcome.reason;
 	}
 	const { output, providerMetadata, rawModelText: parseRawModelText } = parseOutcome.value;
-	rawModelText = parseRawModelText;
+	const rawModelText = parseRawModelText;
 	const generatedTitle = titleOutcome.status === 'fulfilled' ? titleOutcome.value : undefined;
 
 	const urlMetadata = providerMetadata?.google?.urlContextMetadata?.urlMetadata;
@@ -656,7 +655,7 @@ export async function parseWorkout(
 					if (durationMs !== null) return { label: 'EMOM', durationMs };
 				}
 
-				const suffix = s.match(/^(.+?)\s*[:\-]\s*(.+)$/);
+				const suffix = s.match(/^(.+?)\s*[:-]\s*(.+)$/);
 				if (suffix) {
 					const durationMs = parseDurationMs(suffix[2] ?? '');
 					if (durationMs !== null) return { label: (suffix[1] ?? '').trim() || s, durationMs };

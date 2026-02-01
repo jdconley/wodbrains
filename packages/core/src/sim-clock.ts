@@ -39,7 +39,7 @@ export function advanceFixedStep(
   const maxCatchupTicks = Math.max(1, Math.floor(config.maxCatchupTicks));
   const ticksWanted = Math.floor(total / tickMs);
   const ticks = Math.min(ticksWanted, maxCatchupTicks);
-  let accumulatorMs = total - ticks * tickMs;
+  const accumulatorMs = total - ticks * tickMs;
   let simNowMs = state.simNowMs;
 
   const correctionBound = Math.max(0, config.maxCorrectionPerTickMs);
