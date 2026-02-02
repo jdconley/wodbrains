@@ -14,19 +14,6 @@ const workerOrigin = `http://${workerHost}:${workerPort}`;
 const webOrigin = `http://${webHost}:${webPort}`;
 const workerHealthUrl = `${workerOrigin}/api/ping`;
 
-if (process.env.CI) {
-  console.log('[playwright] CI webServer config', {
-    workerHost,
-    webHost,
-    webListenHost,
-    workerPort,
-    webPort,
-    workerOrigin,
-    workerHealthUrl,
-    webOrigin,
-  });
-}
-
 export default defineConfig({
   testDir: 'apps/web/e2e',
   // README screenshot/video generation specs are intentionally slow and have side effects
@@ -45,12 +32,9 @@ export default defineConfig({
     ? [
         {
           command:
-            `echo "[playwright] starting worker webServer (migrate + wrangler dev) on ${workerOrigin}" >&2 && ` +
             `pnpm --filter worker db:migrate:local && ` +
-            `echo "[playwright] worker DB migrated; starting wrangler dev..." >&2 && ` +
             `pnpm --filter worker exec wrangler dev --local --ip ${workerHost} --port ${workerPort} --var STUB_PARSE:1`,
-          // When serving the SPA from the worker, wait on the same origin used for tests.
-          url: workerOrigin,
+          url: workerHealthUrl,
           reuseExistingServer: false,
           timeout: 120_000,
         },
@@ -58,18 +42,14 @@ export default defineConfig({
     : [
         {
           command:
-            `echo "[playwright] starting worker webServer (migrate + wrangler dev) on ${workerOrigin}" >&2 && ` +
             `pnpm --filter worker db:migrate:local && ` +
-            `echo "[playwright] worker DB migrated; starting wrangler dev..." >&2 && ` +
             `pnpm --filter worker exec wrangler dev --local --ip ${workerHost} --port ${workerPort} --var STUB_PARSE:1`,
           url: workerHealthUrl,
           reuseExistingServer: !process.env.CI,
-          // Make it obvious in CI logs which server is hanging.
-          timeout: 45_000,
+          timeout: 120_000,
         },
         {
           command:
-            `echo "[playwright] starting web webServer (vite) on ${webOrigin}" >&2 && ` +
             `pnpm --filter web dev -- --host ${webListenHost} --port ${webPort} --strictPort`,
           url: webOrigin,
           reuseExistingServer: !process.env.CI,
