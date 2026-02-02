@@ -202,7 +202,30 @@ const requireAdminToken = (c: Context<HonoEnv>): string | null => {
 	return token;
 };
 
-const isValidR2Key = (value: string): boolean => /^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/.test(value) && value.length <= 240;
+const isValidR2Key = (value: string): boolean => {
+	if (value.length > 240) return false;
+	if (!/^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/.test(value)) return false;
+	// Avoid weird/ambiguous path-like segments even though this is “just” R2.
+	for (const part of value.split('/')) {
+		if (part === '.' || part === '..') return false;
+	}
+	return true;
+};
+
+const normalizeR2Key = (rawKey?: string | null): string | null => {
+	if (!rawKey) return null;
+	let key = rawKey.trim();
+	if (!key) return null;
+	key = key.replace(/^\/+/, '');
+	try {
+		key = decodeURIComponent(key);
+	} catch {
+		// If it's not valid URI encoding, we'll let validation fail below.
+	}
+	const q = key.indexOf('?');
+	if (q !== -1) key = key.slice(0, q);
+	return key.trim() || null;
+};
 
 const isValidOgImageKey = (value: string) => /^[a-z0-9_-]+$/i.test(value) && value.length <= 200;
 
@@ -1755,9 +1778,14 @@ export function createApp() {
 	app.get('/api/admin/r2/*', async (c) => {
 		const adminToken = requireAdminToken(c);
 		if (!adminToken) return c.json({ error: 'unauthorized' }, 401);
-		const rawKey = c.req.param('*');
-		const key = rawKey?.trim();
-		if (!key || !isValidR2Key(key)) return c.json({ error: 'bad_request' }, 400);
+		// Hono's `*` param extraction has been flaky across environments.
+		// Prefer parsing the key from the request path, falling back to the param.
+		const prefix = '/api/admin/r2/';
+		const rawKey = c.req.path.startsWith(prefix) ? c.req.path.slice(prefix.length) : c.req.param('*');
+		const key = normalizeR2Key(rawKey);
+		if (!key || !isValidR2Key(key)) {
+			return c.json({ error: 'bad_request', reason: 'invalid_r2_key' }, 400);
+		}
 		const object = await c.env.OG_IMAGES.get(key);
 		if (!object) return c.json({ error: 'not_found' }, 404);
 		const headers = new Headers();

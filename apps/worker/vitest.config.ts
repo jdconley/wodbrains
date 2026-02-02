@@ -14,6 +14,7 @@ export default defineWorkersConfig(async () => {
 			setupFiles: ['test/setup.ts'],
 			poolOptions: {
 				workers: {
+					singleWorker: true,
 					wrangler: {
 						configPath: './wrangler.jsonc',
 					},
@@ -22,6 +23,7 @@ export default defineWorkersConfig(async () => {
 							TEST_MIGRATIONS: migrations,
 							GOOGLE_GENERATIVE_AI_API_KEY: googleApiKey,
 							RUN_LIVE_AI_TESTS: runLiveAiTests,
+							MIGRATE_TOKEN: 'test-migrate-token',
 							STUB_PARSE: '0',
 							STUB_OG: '1',
 						},
