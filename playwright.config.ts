@@ -4,10 +4,10 @@ import { defineConfig } from '@playwright/test';
 // Use explicit hosts per server to avoid readiness checks hanging.
 const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
 const workerHost = process.env.E2E_WORKER_HOST ?? '127.0.0.1';
-// Prefer `localhost` for the web origin so the same URL works across IPv4/IPv6.
-const webHost = process.env.E2E_WEB_HOST ?? 'localhost';
-// In CI bind Vite to all IPv4 interfaces so it's reachable via 127.0.0.1.
-const webListenHost = process.env.E2E_WEB_LISTEN_HOST ?? (isGitHubActions ? '0.0.0.0' : webHost);
+// In GitHub Actions, prefer an explicit IPv4 host for the Vite server.
+// (Some runners resolve `localhost` in ways that don't match Vite's bind address.)
+const webHost = process.env.E2E_WEB_HOST ?? (isGitHubActions ? '127.0.0.1' : 'localhost');
+const webListenHost = process.env.E2E_WEB_LISTEN_HOST ?? webHost;
 const workerPort = Number(process.env.E2E_WORKER_PORT ?? 8788);
 const webPort = Number(process.env.E2E_WEB_PORT ?? 5174);
 const workerOrigin = `http://${workerHost}:${workerPort}`;
