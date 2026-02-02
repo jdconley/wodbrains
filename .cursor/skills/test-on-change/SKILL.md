@@ -44,6 +44,26 @@ pnpm run test:e2e
   - `E2E_WORKER_PORT=8790 E2E_WEB_PORT=5176 pnpm run test:e2e`
 - Vite proxies `/api` to `VITE_API_ORIGIN`, which Playwright sets to the worker port.
 
+### If startup fails due to port conflicts (kill leftover processes)
+
+Sometimes Playwright fails during webServer startup with errors like `EADDRINUSE` / “port is already in use”. This can also leave the dev servers running even though the test run exited. When that happens:
+
+1. Identify the ports in use (defaults: `5174` + `8788`, or your `E2E_WEB_PORT` / `E2E_WORKER_PORT` overrides).
+2. Find the listening process PID(s) and kill them.
+3. Re-run `pnpm run test:e2e`.
+
+On macOS/Linux:
+
+```bash
+# Find which process is listening on the port
+lsof -nP -iTCP:5174 -sTCP:LISTEN
+lsof -nP -iTCP:8788 -sTCP:LISTEN
+
+# Then terminate the PID(s) shown (try TERM first, then KILL if needed)
+kill <PID>
+kill -9 <PID>
+```
+
 ### Stub Parse Behavior
 
 The Playwright webServer runs the worker with `STUB_PARSE=1`, which always returns a fixed “for time” workout definition. UI tests that depend on specific workout shapes must align with this stub output (e.g., rounds-for-time).
