@@ -111,6 +111,9 @@ const buildDefinitionOgHtml = (title: string) => {
         padding: 60px 80px;
       }
       .Logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
         width: 260px;
         height: 260px;
         filter: drop-shadow(0 26px 60px rgba(0, 0, 0, 0.45));
