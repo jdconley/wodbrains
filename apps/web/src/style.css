@@ -1329,7 +1329,7 @@ body {
 .ToastHost {
   position: fixed;
   left: 50%;
-  top: max(16px, env(safe-area-inset-top));
+  bottom: max(16px, env(safe-area-inset-bottom));
   transform: translateX(-50%);
   z-index: 220;
   display: flex;
@@ -1365,7 +1365,19 @@ body {
 
 .Toast--hide {
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(4px);
+}
+
+/* Desktop: position toasts at top */
+@media (min-width: 760px) {
+  .ToastHost {
+    bottom: auto;
+    top: max(16px, env(safe-area-inset-top));
+  }
+
+  .Toast--hide {
+    transform: translateY(-4px);
+  }
 }
 
 .SegmentLabel {
