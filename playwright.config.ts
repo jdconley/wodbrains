@@ -4,8 +4,8 @@ import { defineConfig } from '@playwright/test';
 // Use explicit hosts per server to avoid readiness checks hanging.
 const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
 const workerHost = process.env.E2E_WORKER_HOST ?? '127.0.0.1';
-// In CI, prefer IPv4 loopback for readiness checks; on macOS Vite commonly binds ::1 for localhost.
-const webHost = process.env.E2E_WEB_HOST ?? (isGitHubActions ? '127.0.0.1' : 'localhost');
+// Prefer `localhost` for the web origin so the same URL works across IPv4/IPv6.
+const webHost = process.env.E2E_WEB_HOST ?? 'localhost';
 // In CI bind Vite to all IPv4 interfaces so it's reachable via 127.0.0.1.
 const webListenHost = process.env.E2E_WEB_LISTEN_HOST ?? (isGitHubActions ? '0.0.0.0' : webHost);
 const workerPort = Number(process.env.E2E_WORKER_PORT ?? 8788);
