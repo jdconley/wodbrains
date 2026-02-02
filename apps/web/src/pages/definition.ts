@@ -5,7 +5,7 @@ import {
   type WorkoutBlock,
   type WorkoutDefinition,
 } from '@wodbrains/core';
-import { createRun, ensureAnonymousSession, getDefinition } from '../api';
+import { createRun, ensureAnonymousSession, getDefinition, submitParseFeedback } from '../api';
 import { navigate } from '../router';
 import { type DisplayNode, workoutBlocksToDisplayNodes } from '../display/compact';
 import { appHeader, setupAppHeader, setAppHeaderTitle } from '../components/header';
@@ -81,6 +81,13 @@ export async function renderDefinitionPage(root: HTMLElement, definitionId: stri
               <path d="m15 5 4 4"/>
             </svg>
           </button>
+          <button class="DefinitionAction DefinitionAction--report" id="reportParse" type="button" aria-label="Timer looks wrong">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </button>
         </div>
       </main>
 
@@ -107,14 +114,110 @@ export async function renderDefinitionPage(root: HTMLElement, definitionId: stri
   const shareWorkoutEl = root.querySelector<HTMLButtonElement>('#shareWorkout')!;
   const shareHeaderEl = root.querySelector<HTMLButtonElement>('#shareWorkoutHeader');
   const editTimerEl = root.querySelector<HTMLButtonElement>('#editTimer')!;
+  const reportParseEl = root.querySelector<HTMLButtonElement>('#reportParse')!;
+
+  let currentWorkoutDefinition: WorkoutDefinition | null = null;
+  let currentTimerPlan: TimerPlan | null = null;
 
   editTimerEl.addEventListener('click', () =>
     navigate(`/w/${encodeURIComponent(definitionId)}/edit`),
   );
+  reportParseEl.addEventListener('click', () => openFeedbackDialog());
 
   const setStatus = (msg: string, tone: 'muted' | 'error' | 'ok' = 'muted') => {
     statusEl.textContent = msg;
     statusEl.dataset.tone = tone;
+  };
+
+  const openFeedbackDialog = () => {
+    const lastFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const overlay = document.createElement('div');
+    overlay.className = 'ConfirmDialog';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    const titleId = `feedback-title-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`;
+    overlay.setAttribute('aria-labelledby', titleId);
+
+    const card = document.createElement('div');
+    card.className = 'ConfirmDialogCard FeedbackDialogCard';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'ConfirmDialogTitle';
+    titleEl.id = titleId;
+    titleEl.textContent = 'Timer looks wrong';
+
+    const descEl = document.createElement('div');
+    descEl.className = 'ConfirmDialogDescription';
+    descEl.textContent =
+      'Tell us what it should look like. We’ll include your original workout and the timer we built.';
+
+    const noteEl = document.createElement('textarea');
+    noteEl.className = 'FeedbackTextarea';
+    noteEl.placeholder = 'What should the timer have looked like?';
+    noteEl.setAttribute('aria-label', 'Report details');
+    noteEl.rows = 4;
+
+    const actions = document.createElement('div');
+    actions.className = 'FeedbackActions';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'GhostBtn';
+    cancelBtn.textContent = 'Cancel';
+
+    const sendBtn = document.createElement('button');
+    sendBtn.type = 'button';
+    sendBtn.className = 'PrimaryBtn';
+    sendBtn.textContent = 'Send report';
+
+    actions.append(cancelBtn, sendBtn);
+    card.append(titleEl, descEl, noteEl, actions);
+    overlay.appendChild(card);
+
+    const close = () => {
+      document.removeEventListener('keydown', onKeyDown);
+      overlay.remove();
+      lastFocused?.focus();
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+      }
+    };
+
+    cancelBtn.addEventListener('click', close);
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) close();
+    });
+
+    sendBtn.addEventListener('click', async () => {
+      sendBtn.disabled = true;
+      try {
+        await ensureAnonymousSession();
+        await submitParseFeedback({
+          definitionId,
+          category: 'bad_parse',
+          note: noteEl.value.trim() || undefined,
+          currentWorkoutDefinition: currentWorkoutDefinition ?? undefined,
+          currentTimerPlan: currentTimerPlan ?? undefined,
+          pageUrl: window.location.href,
+          userAgent: navigator.userAgent,
+        });
+        setStatus('Report sent. Thank you!', 'ok');
+        close();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setStatus(message || 'Could not send report.', 'error');
+        sendBtn.disabled = false;
+      }
+    });
+
+    document.body.appendChild(overlay);
+    document.addEventListener('keydown', onKeyDown);
+    noteEl.focus();
   };
 
   setStatus('Loading...', 'muted');
@@ -129,6 +232,8 @@ export async function renderDefinitionPage(root: HTMLElement, definitionId: stri
       ? compileWorkoutDefinition(workoutDefinition)
       : undefined;
     const plan = compiledPlan ?? planFromApi;
+    currentWorkoutDefinition = workoutDefinition ?? null;
+    currentTimerPlan = plan ?? null;
     const description = buildTimerDescription(workoutDefinition, plan);
     titleEl.textContent = description.title;
     setAppHeaderTitle(root, description.title);

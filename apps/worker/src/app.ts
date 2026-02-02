@@ -2,8 +2,8 @@ import { Hono, type Context } from 'hono';
 import { html } from 'hono/html';
 import type { Env } from './env';
 import { createAuth } from './auth';
-import { parseWorkout } from './parse';
-import { requireUserId } from './session';
+import { PARSE_MODEL_ID, TITLE_MODEL_ID, buildPromptSnapshot, parseWorkout } from './parse';
+import { getSession, requireUserId } from './session';
 import { APIError } from 'better-auth/api';
 import { v7 as uuidv7 } from 'uuid';
 import { fetchImageAsFile } from './fetch-image';
@@ -122,6 +122,88 @@ const formatMetaDescription = (opts: { preview?: string | null; title?: string |
 	return DEFAULT_DESCRIPTION;
 };
 
+const toHex = (buffer: ArrayBuffer): string =>
+	Array.from(new Uint8Array(buffer))
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join('');
+
+const sha256Hex = async (value: string | ArrayBuffer): Promise<string> => {
+	const bytes = typeof value === 'string' ? new TextEncoder().encode(value) : new Uint8Array(value);
+	const hash = await crypto.subtle.digest('SHA-256', bytes);
+	return toHex(hash);
+};
+
+const sanitizeR2KeyPart = (value: string, fallback: string): string => {
+	const raw = (value || fallback).trim() || fallback;
+	const safe = raw.replace(/[^a-zA-Z0-9._-]+/g, '_');
+	if (!safe) return fallback;
+	return safe.length > 120 ? safe.slice(0, 120) : safe;
+};
+
+const buildParsePayloadKey = (parseId: string) => `parse_payloads/${parseId}.json`;
+const buildParseImageKey = (parseId: string, filename: string) => `parse_inputs/${parseId}/${sanitizeR2KeyPart(filename, 'image')}`;
+
+const parseGithubRepo = (value?: string) => {
+	if (!value) return null;
+	const trimmed = value.trim();
+	if (!trimmed) return null;
+	const [owner, repo] = trimmed.split('/');
+	if (!owner || !repo) return null;
+	return { owner, repo };
+};
+
+const parseGithubLabels = (value?: string): string[] | undefined => {
+	if (!value) return undefined;
+	const labels = value
+		.split(',')
+		.map((label) => label.trim())
+		.filter((label) => label);
+	return labels.length ? labels : undefined;
+};
+
+const createGithubIssue = async (env: Env, input: { title: string; body: string; labels?: string[] }) => {
+	if (!env.GITHUB_ISSUES_TOKEN || !env.GITHUB_ISSUES_REPO) return;
+	const repo = parseGithubRepo(env.GITHUB_ISSUES_REPO);
+	if (!repo) return;
+	const res = await fetch(`https://api.github.com/repos/${repo.owner}/${repo.repo}/issues`, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${env.GITHUB_ISSUES_TOKEN}`,
+			'User-Agent': 'wodbrains-worker',
+			Accept: 'application/vnd.github+json',
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({
+			title: input.title,
+			body: input.body,
+			...(input.labels?.length ? { labels: input.labels } : {}),
+		}),
+	});
+	if (!res.ok) {
+		const errText = await res.text().catch(() => '');
+		throw new Error(`GitHub issue creation failed: ${res.status} ${errText.slice(0, 240)}`);
+	}
+};
+
+const getAdminToken = (c: Context<HonoEnv>): string | undefined => {
+	const queryToken = c.req.query('token');
+	if (queryToken) return queryToken;
+	const authHeader = c.req.header('authorization') ?? '';
+	if (authHeader.toLowerCase().startsWith('bearer ')) {
+		return authHeader.slice(7).trim();
+	}
+	return undefined;
+};
+
+const requireAdminToken = (c: Context<HonoEnv>): string | null => {
+	if (!c.env.MIGRATE_TOKEN) return null;
+	const token = getAdminToken(c);
+	if (!token || token !== c.env.MIGRATE_TOKEN) return null;
+	return token;
+};
+
+const isValidR2Key = (value: string): boolean => /^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/.test(value) && value.length <= 240;
+
 const isValidOgImageKey = (value: string) => /^[a-z0-9_-]+$/i.test(value) && value.length <= 200;
 
 const ensureDefinitionOgKey = async (
@@ -153,12 +235,26 @@ const CreateDefinitionBodySchema = z.object({
 	workoutDefinition: z.unknown(),
 	source: DefinitionSourceSchema,
 	dataVersion: z.number().int().positive().optional(),
+	parseId: z.string().optional(),
 });
 
 const PatchDefinitionBodySchema = z.object({
 	workoutDefinition: z.unknown(),
 	dataVersion: z.number().int().positive().optional(),
 });
+
+const ParseFeedbackBodySchema = z
+	.object({
+		parseId: z.string().optional(),
+		definitionId: z.string().optional(),
+		category: z.string().optional(),
+		note: z.string().optional(),
+		currentWorkoutDefinition: z.unknown().optional(),
+		currentTimerPlan: z.unknown().optional(),
+		pageUrl: z.string().optional(),
+		userAgent: z.string().optional(),
+	})
+	.strict();
 
 const IDEMPOTENCY_PENDING_TTL_MS = 2 * 60 * 1000;
 const IDEMPOTENCY_COMPLETE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -281,6 +377,8 @@ export function createApp() {
 	app.post('/api/parse', async (c) => {
 		const contentType = c.req.header('content-type') ?? '';
 		const requestId = c.req.header('x-request-id') ?? undefined;
+		const parseId = uuidv7();
+		const createdAt = Date.now();
 
 		let text: string | undefined;
 		let url: string | undefined;
@@ -313,13 +411,93 @@ export function createApp() {
 			text = undefined;
 		}
 
+		const inputKind = image || imageUrl ? 'image' : url ? 'url' : 'text';
+		let inputImageKey: string | undefined;
+		let inputImageMimeType: string | undefined;
+		let inputImageFilename: string | undefined;
+		let inputImageSize: number | undefined;
+
+		const userId = await getSession(c.env, c.req.raw)
+			.then((session) => session?.user?.id ?? null)
+			.catch(() => null);
+
+		const storeParsePayload = async (payload: unknown, payloadKey: string): Promise<string> => {
+			const payloadJson = JSON.stringify(payload);
+			const payloadSha = await sha256Hex(payloadJson);
+			await c.env.OG_IMAGES.put(payloadKey, payloadJson, {
+				httpMetadata: { contentType: 'application/json' },
+				customMetadata: {
+					parseId,
+					requestId: requestId ?? '',
+					createdAt: String(createdAt),
+				},
+			});
+			return payloadSha;
+		};
+
+		const insertParseAttempt = async (params: {
+			payloadKey: string;
+			payloadSha: string;
+			outputTitlePreview?: string | null;
+			errorCode?: string | null;
+			errorMessage?: string | null;
+		}) => {
+			await c.env.DB.prepare(
+				`insert into parse_attempts
+          (parseId, requestId, userId, createdAt, inputKind, inputTextPreview, inputTextLen, inputUrl, inputUrlLen,
+           inputImageKey, inputImageMimeType, inputImageFilename, inputImageSize, payloadR2Key, payloadSha256,
+           outputTitlePreview, errorCode, errorMessage)
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			)
+				.bind(
+					parseId,
+					requestId ?? null,
+					userId,
+					createdAt,
+					inputKind,
+					text ? text.slice(0, 300) : null,
+					text ? text.length : null,
+					url ?? null,
+					url ? url.length : null,
+					inputImageKey ?? null,
+					inputImageMimeType ?? null,
+					inputImageFilename ?? null,
+					typeof inputImageSize === 'number' ? inputImageSize : null,
+					params.payloadKey,
+					params.payloadSha,
+					params.outputTitlePreview ?? null,
+					params.errorCode ?? null,
+					params.errorMessage ?? null,
+				)
+				.run();
+		};
+
 		try {
 			if (!image && imageUrl && c.env.STUB_PARSE !== '1') {
 				image = await fetchImageAsFile(imageUrl, { requestId });
 			}
 
+			if (image) {
+				const imageBytes = await image.arrayBuffer();
+				inputImageMimeType = image.type || 'application/octet-stream';
+				inputImageFilename = image.name || 'image';
+				inputImageSize = imageBytes.byteLength;
+				const imageKey = buildParseImageKey(parseId, inputImageFilename);
+				await c.env.OG_IMAGES.put(imageKey, imageBytes, {
+					httpMetadata: { contentType: inputImageMimeType },
+					customMetadata: {
+						parseId,
+						requestId: requestId ?? '',
+						createdAt: String(createdAt),
+					},
+				});
+				inputImageKey = imageKey;
+			}
+
 			const input = { text, url, image };
+			const promptSnapshot = buildPromptSnapshot({ text, url, hasImage: !!image });
 			console.info('[worker] /api/parse', {
+				parseId,
 				requestId,
 				contentType,
 				hasText: !!text,
@@ -354,23 +532,272 @@ export function createApp() {
 					],
 				};
 				const timerPlan = compileWorkoutDefinition(def);
+				const payloadKey = buildParsePayloadKey(parseId);
+				const payload = {
+					parseId,
+					requestId,
+					createdAt,
+					input: {
+						kind: inputKind,
+						text,
+						url,
+						imageUrl,
+						image: inputImageKey
+							? {
+									key: inputImageKey,
+									mimeType: inputImageMimeType,
+									filename: inputImageFilename,
+									size: inputImageSize,
+								}
+							: undefined,
+					},
+					prompts: promptSnapshot,
+					model: { parseModelId: 'stub', titleModelId: 'stub' },
+					output: {
+						workoutDefinition: def,
+						timerPlan,
+						assumptions: ['STUB_PARSE=1'],
+						source: { kind: 'text', preview: 'stub' },
+					},
+				};
+				try {
+					const payloadSha = await storeParsePayload(payload, payloadKey);
+					await insertParseAttempt({
+						payloadKey,
+						payloadSha,
+						outputTitlePreview: def.title ?? null,
+					});
+				} catch (storageError) {
+					const errMessage = storageError instanceof Error ? storageError.message : String(storageError);
+					console.error('[worker] parse payload store failed', { parseId, requestId, errMessage });
+				}
 				return c.json({
 					workoutDefinition: def,
 					timerPlan,
 					assumptions: ['STUB_PARSE=1'],
 					source: { kind: 'text', preview: 'stub' },
+					parseId,
 				});
 			}
 
 			const result = await parseWorkout(c.env, input, { requestId });
-			return c.json(result);
+			const { meta, ...publicResult } = result;
+			const payloadKey = buildParsePayloadKey(parseId);
+			const payload = {
+				parseId,
+				requestId,
+				createdAt,
+				input: {
+					kind: inputKind,
+					text,
+					url,
+					imageUrl,
+					image: inputImageKey
+						? {
+								key: inputImageKey,
+								mimeType: inputImageMimeType,
+								filename: inputImageFilename,
+								size: inputImageSize,
+							}
+						: undefined,
+				},
+				prompts: meta.promptSnapshot,
+				model: meta.model,
+				raw: meta.raw,
+				providerMetadata: meta.providerMetadata,
+				urlStatuses: meta.urlStatuses,
+				output: {
+					workoutDefinition: publicResult.workoutDefinition,
+					timerPlan: publicResult.timerPlan,
+					assumptions: publicResult.assumptions,
+					source: publicResult.source,
+				},
+			};
+			try {
+				const payloadSha = await storeParsePayload(payload, payloadKey);
+				await insertParseAttempt({
+					payloadKey,
+					payloadSha,
+					outputTitlePreview: publicResult.workoutDefinition.title ?? null,
+				});
+			} catch (storageError) {
+				const errMessage = storageError instanceof Error ? storageError.message : String(storageError);
+				console.error('[worker] parse payload store failed', { parseId, requestId, errMessage });
+			}
+			return c.json({ ...publicResult, parseId });
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			const code =
 				err && typeof err === 'object' && !Array.isArray(err) && typeof (err as any).code === 'string'
 					? String((err as any).code)
 					: 'parse_failed';
-			return c.json({ error: code, message }, 500);
+			const promptSnapshot = buildPromptSnapshot({ text, url, hasImage: !!image });
+			const payloadKey = buildParsePayloadKey(parseId);
+			try {
+				const payload = {
+					parseId,
+					requestId,
+					createdAt,
+					input: {
+						kind: inputKind,
+						text,
+						url,
+						imageUrl,
+						image: inputImageKey
+							? {
+									key: inputImageKey,
+									mimeType: inputImageMimeType,
+									filename: inputImageFilename,
+									size: inputImageSize,
+								}
+							: undefined,
+					},
+					prompts: promptSnapshot,
+					model: { parseModelId: PARSE_MODEL_ID, titleModelId: TITLE_MODEL_ID },
+					error: { code, message },
+				};
+				const payloadSha = await storeParsePayload(payload, payloadKey);
+				await insertParseAttempt({
+					payloadKey,
+					payloadSha,
+					errorCode: code,
+					errorMessage: message,
+				});
+			} catch (storageError) {
+				const errMessage = storageError instanceof Error ? storageError.message : String(storageError);
+				console.error('[worker] parse payload store failed', { parseId, requestId, errMessage });
+			}
+			return c.json({ error: code, message, parseId }, 500);
+		}
+	});
+
+	app.post('/api/parse-feedback', async (c) => {
+		try {
+			const body = ParseFeedbackBodySchema.parse(await c.req.json());
+			const session = await getSession(c.env, c.req.raw).catch(() => null);
+			const userId = session?.user?.id ?? null;
+			const createdAt = Date.now();
+			const feedbackId = uuidv7();
+			const definitionId = body.definitionId?.trim() || undefined;
+
+			let parseId = body.parseId?.trim() || undefined;
+			type DefinitionOriginRow = {
+				parseId: string;
+				payloadR2Key: string;
+				payloadSha256: string | null;
+				inputImageKey: string | null;
+			};
+			let origin: DefinitionOriginRow | null = null;
+
+			if (!parseId && definitionId) {
+				origin = await c.env.DB.prepare(
+					`select parseId, payloadR2Key, payloadSha256, inputImageKey
+           from definition_origins
+           where definitionId = ?`,
+				)
+					.bind(definitionId)
+					.first<DefinitionOriginRow>();
+				if (origin?.parseId) parseId = origin.parseId;
+			}
+
+			if (!parseId && !definitionId) {
+				return c.json({ error: 'bad_request', message: 'parseId or definitionId required' }, 400);
+			}
+
+			const category = body.category?.trim() || 'bad_parse';
+			const note = body.note?.trim() || null;
+			const currentWorkoutDefinitionJson = body.currentWorkoutDefinition ? JSON.stringify(body.currentWorkoutDefinition) : null;
+			const currentTimerPlanJson = body.currentTimerPlan ? JSON.stringify(body.currentTimerPlan) : null;
+			const userAgent = body.userAgent?.trim() || c.req.header('user-agent') || null;
+			const pageUrl = body.pageUrl?.trim() || c.req.header('referer') || null;
+
+			await c.env.DB.prepare(
+				`insert into parse_feedback
+          (feedbackId, createdAt, userId, definitionId, parseId, category, note, currentWorkoutDefinitionJson,
+           currentTimerPlanJson, userAgent, pageUrl)
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			)
+				.bind(
+					feedbackId,
+					createdAt,
+					userId,
+					definitionId ?? null,
+					parseId ?? null,
+					category,
+					note,
+					currentWorkoutDefinitionJson,
+					currentTimerPlanJson,
+					userAgent,
+					pageUrl,
+				)
+				.run();
+
+			const attempt = parseId
+				? await c.env.DB.prepare(
+						`select requestId, inputKind, inputTextPreview, inputUrl, outputTitlePreview,
+                errorCode, errorMessage, payloadR2Key, payloadSha256, inputImageKey
+           from parse_attempts
+           where parseId = ?`,
+					)
+						.bind(parseId)
+						.first<{
+							requestId: string | null;
+							inputKind: string | null;
+							inputTextPreview: string | null;
+							inputUrl: string | null;
+							outputTitlePreview: string | null;
+							errorCode: string | null;
+							errorMessage: string | null;
+							payloadR2Key: string | null;
+							payloadSha256: string | null;
+							inputImageKey: string | null;
+						}>()
+				: null;
+
+			const payloadR2Key = attempt?.payloadR2Key ?? origin?.payloadR2Key ?? null;
+			const payloadSha256 = attempt?.payloadSha256 ?? origin?.payloadSha256 ?? null;
+			const inputImageKey = attempt?.inputImageKey ?? origin?.inputImageKey ?? null;
+			const outputTitle = attempt?.outputTitlePreview?.trim();
+			const shortId = (value?: string | null) => (value ? value.slice(0, 8) : 'unknown');
+
+			const issueTitle = `Bad parse report: ${outputTitle || shortId(definitionId ?? parseId)}`;
+			const issueBody = [
+				`- Feedback ID: ${feedbackId}`,
+				`- Parse ID: ${parseId ?? 'n/a'}`,
+				`- Definition ID: ${definitionId ?? 'n/a'}`,
+				`- User ID: ${userId ?? 'anonymous'}`,
+				`- Category: ${category}`,
+				`- Page URL: ${pageUrl ?? 'n/a'}`,
+				`- User Agent: ${userAgent ?? 'n/a'}`,
+				`- Request ID: ${attempt?.requestId ?? 'n/a'}`,
+				`- Input Kind: ${attempt?.inputKind ?? 'n/a'}`,
+				`- Input Preview: ${attempt?.inputTextPreview ?? attempt?.inputUrl ?? 'n/a'}`,
+				`- Parse Error: ${attempt?.errorCode ?? 'n/a'}${attempt?.errorMessage ? ` — ${attempt.errorMessage}` : ''}`,
+				`- Output Title: ${attempt?.outputTitlePreview ?? 'n/a'}`,
+				`- Payload R2 Key: ${payloadR2Key ?? 'n/a'}`,
+				`- Payload Sha256: ${payloadSha256 ?? 'n/a'}`,
+				`- Image R2 Key: ${inputImageKey ?? 'n/a'}`,
+				`- Note: ${note ?? 'n/a'}`,
+				`- Admin: ${DEFAULT_SITE_URL}/admin/parse-feedback (requires token)`,
+			].join('\n');
+
+			const labels = parseGithubLabels(c.env.GITHUB_ISSUES_LABELS);
+			if (c.env.GITHUB_ISSUES_TOKEN && c.env.GITHUB_ISSUES_REPO) {
+				const issuePromise = createGithubIssue(c.env, { title: issueTitle, body: issueBody, labels }).catch((err) => {
+					const errMessage = err instanceof Error ? err.message : String(err);
+					console.error('[worker] GitHub issue creation failed', { feedbackId, errMessage });
+				});
+				if (c.executionCtx) {
+					c.executionCtx.waitUntil(issuePromise);
+				} else {
+					await issuePromise;
+				}
+			}
+
+			return c.json({ feedbackId, parseId, definitionId });
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			return c.json({ error: 'parse_feedback_failed', message }, 500);
 		}
 	});
 
@@ -413,6 +840,39 @@ export function createApp() {
 						now,
 					)
 					.run();
+
+				if (body.parseId) {
+					const origin = await c.env.DB.prepare(
+						`select parseId, userId, payloadR2Key, payloadSha256, inputImageKey
+             from parse_attempts
+             where parseId = ?`,
+					)
+						.bind(body.parseId)
+						.first<{
+							parseId: string;
+							userId: string | null;
+							payloadR2Key: string;
+							payloadSha256: string | null;
+							inputImageKey: string | null;
+						}>();
+
+					if (origin && (!origin.userId || origin.userId === userId)) {
+						await c.env.DB.prepare(
+							`insert into definition_origins
+               (definitionId, parseId, payloadR2Key, payloadSha256, inputImageKey, createdAt)
+              values (?, ?, ?, ?, ?, ?)`,
+						)
+							.bind(definitionId, origin.parseId, origin.payloadR2Key, origin.payloadSha256, origin.inputImageKey, now)
+							.run();
+					} else {
+						console.warn('[worker] definition origin mismatch', {
+							definitionId,
+							parseId: body.parseId,
+							originUserId: origin?.userId,
+							userId,
+						});
+					}
+				}
 
 				if (c.executionCtx) {
 					c.executionCtx.waitUntil(
@@ -995,6 +1455,318 @@ export function createApp() {
 
 		const forwarded = new Request(url.toString(), req);
 		return await stub.fetch(forwarded);
+	});
+
+	app.get('/admin/parse-feedback', async (c) => {
+		const adminToken = requireAdminToken(c);
+		if (!adminToken) return c.text('unauthorized', 401);
+
+		const rows = await c.env.DB.prepare(
+			`select f.feedbackId, f.createdAt, f.category, f.note, f.parseId, f.definitionId,
+              a.outputTitlePreview, a.inputTextPreview, a.inputUrl
+       from parse_feedback f
+       left join parse_attempts a on a.parseId = f.parseId
+       order by f.createdAt desc
+       limit 100`,
+		).all<{
+			feedbackId: string;
+			createdAt: number;
+			category: string | null;
+			note: string | null;
+			parseId: string | null;
+			definitionId: string | null;
+			outputTitlePreview: string | null;
+			inputTextPreview: string | null;
+			inputUrl: string | null;
+		}>();
+
+		const tokenParam = `?token=${encodeURIComponent(adminToken)}`;
+		const items = rows.results.map((row) => {
+			const title =
+				row.outputTitlePreview?.trim() ||
+				row.inputTextPreview?.trim() ||
+				row.inputUrl?.trim() ||
+				row.definitionId ||
+				row.parseId ||
+				row.feedbackId;
+			const created = new Date(row.createdAt).toISOString();
+			return html`<li class="Row">
+				<a class="RowTitle" href="/admin/parse-feedback/${row.feedbackId}${tokenParam}">${title}</a>
+				<div class="RowMeta">
+					<span>${created}</span>
+					<span>${row.category ?? 'bad_parse'}</span>
+					<span>${row.definitionId ? `def:${row.definitionId.slice(0, 8)}` : ''}</span>
+					<span>${row.parseId ? `parse:${row.parseId.slice(0, 8)}` : ''}</span>
+				</div>
+				${row.note ? html`<div class="RowNote">${row.note}</div>` : ''}
+			</li>`;
+		});
+
+		const page = html`<!doctype html>
+			<html>
+				<head>
+					<meta charset="utf-8" />
+					<meta name="viewport" content="width=device-width, initial-scale=1" />
+					<title>Parse Feedback - WOD Brains</title>
+					<style>
+						body {
+							margin: 0;
+							padding: 24px;
+							font-family: Inter, system-ui, sans-serif;
+							background: #0a0a0a;
+							color: #ffffff;
+						}
+						h1 {
+							margin: 0 0 16px 0;
+							font-size: 20px;
+						}
+						.List {
+							list-style: none;
+							margin: 0;
+							padding: 0;
+							display: grid;
+							gap: 12px;
+						}
+						.Row {
+							padding: 12px 16px;
+							background: #141414;
+							border-radius: 12px;
+							display: grid;
+							gap: 8px;
+						}
+						.RowTitle {
+							color: #ffffff;
+							text-decoration: none;
+							font-weight: 600;
+						}
+						.RowMeta {
+							display: flex;
+							flex-wrap: wrap;
+							gap: 10px;
+							font-size: 12px;
+							color: #9a9a9a;
+						}
+						.RowNote {
+							font-size: 13px;
+							color: #d4d4d4;
+						}
+					</style>
+				</head>
+				<body>
+					<h1>Parse Feedback</h1>
+					<ul class="List">
+						${items}
+					</ul>
+				</body>
+			</html>`;
+		return c.html(String(page));
+	});
+
+	app.get('/admin/parse-feedback/:feedbackId', async (c) => {
+		const adminToken = requireAdminToken(c);
+		if (!adminToken) return c.text('unauthorized', 401);
+		const feedbackId = c.req.param('feedbackId');
+
+		const row = await c.env.DB.prepare(
+			`select f.feedbackId, f.createdAt, f.userId, f.definitionId, f.parseId, f.category, f.note,
+              f.currentWorkoutDefinitionJson, f.currentTimerPlanJson, f.userAgent, f.pageUrl,
+              a.requestId, a.inputKind, a.inputTextPreview, a.inputUrl, a.outputTitlePreview,
+              a.errorCode, a.errorMessage, a.payloadR2Key, a.payloadSha256, a.inputImageKey
+       from parse_feedback f
+       left join parse_attempts a on a.parseId = f.parseId
+       where f.feedbackId = ?`,
+		)
+			.bind(feedbackId)
+			.first<{
+				feedbackId: string;
+				createdAt: number;
+				userId: string | null;
+				definitionId: string | null;
+				parseId: string | null;
+				category: string | null;
+				note: string | null;
+				currentWorkoutDefinitionJson: string | null;
+				currentTimerPlanJson: string | null;
+				userAgent: string | null;
+				pageUrl: string | null;
+				requestId: string | null;
+				inputKind: string | null;
+				inputTextPreview: string | null;
+				inputUrl: string | null;
+				outputTitlePreview: string | null;
+				errorCode: string | null;
+				errorMessage: string | null;
+				payloadR2Key: string | null;
+				payloadSha256: string | null;
+				inputImageKey: string | null;
+			}>();
+
+		if (!row) return c.text('not_found', 404);
+
+		const origin = row.definitionId
+			? await c.env.DB.prepare(
+					`select parseId, payloadR2Key, payloadSha256, inputImageKey
+           from definition_origins
+           where definitionId = ?`,
+				)
+					.bind(row.definitionId)
+					.first<{ parseId: string; payloadR2Key: string; payloadSha256: string | null; inputImageKey: string | null }>()
+			: null;
+
+		const payloadKey = row.payloadR2Key ?? origin?.payloadR2Key ?? null;
+		const payloadSha = row.payloadSha256 ?? origin?.payloadSha256 ?? null;
+		const imageKey = row.inputImageKey ?? origin?.inputImageKey ?? null;
+		const tokenParam = `?token=${encodeURIComponent(adminToken)}`;
+		const createdAt = new Date(row.createdAt).toISOString();
+
+		const page = html`<!doctype html>
+			<html>
+				<head>
+					<meta charset="utf-8" />
+					<meta name="viewport" content="width=device-width, initial-scale=1" />
+					<title>Parse Feedback Detail</title>
+					<style>
+						body {
+							margin: 0;
+							padding: 24px;
+							font-family: Inter, system-ui, sans-serif;
+							background: #0a0a0a;
+							color: #ffffff;
+						}
+						a {
+							color: #ff10f0;
+							text-decoration: none;
+						}
+						.Section {
+							background: #141414;
+							border-radius: 12px;
+							padding: 16px;
+							margin-bottom: 16px;
+						}
+						.Title {
+							font-size: 18px;
+							font-weight: 700;
+							margin: 0 0 8px 0;
+						}
+						.Meta {
+							display: grid;
+							gap: 6px;
+							font-size: 13px;
+							color: #d4d4d4;
+						}
+						pre {
+							white-space: pre-wrap;
+							word-break: break-word;
+							background: #0f0f0f;
+							padding: 12px;
+							border-radius: 8px;
+							font-size: 12px;
+						}
+					</style>
+				</head>
+				<body>
+					<div class="Section">
+						<div class="Title">Feedback ${row.feedbackId}</div>
+						<div class="Meta">
+							<div>Created: ${createdAt}</div>
+							<div>User: ${row.userId ?? 'anonymous'}</div>
+							<div>Category: ${row.category ?? 'bad_parse'}</div>
+							<div>Definition: ${row.definitionId ?? 'n/a'}</div>
+							<div>Parse ID: ${row.parseId ?? origin?.parseId ?? 'n/a'}</div>
+							<div>Request ID: ${row.requestId ?? 'n/a'}</div>
+							<div>Input Kind: ${row.inputKind ?? 'n/a'}</div>
+							<div>Input Preview: ${row.inputTextPreview ?? row.inputUrl ?? 'n/a'}</div>
+							<div>Error: ${row.errorCode ?? 'n/a'} ${row.errorMessage ?? ''}</div>
+							<div>Output Title: ${row.outputTitlePreview ?? 'n/a'}</div>
+							<div>Payload Key: ${payloadKey ?? 'n/a'}</div>
+							<div>Payload Sha: ${payloadSha ?? 'n/a'}</div>
+							<div>Image Key: ${imageKey ?? 'n/a'}</div>
+							<div>Page URL: ${row.pageUrl ?? 'n/a'}</div>
+							<div>User Agent: ${row.userAgent ?? 'n/a'}</div>
+						</div>
+					</div>
+
+					${row.note
+						? html`<div class="Section">
+								<div class="Title">Note</div>
+								<pre>${row.note}</pre>
+							</div>`
+						: ''}
+					${payloadKey
+						? html`<div class="Section">
+								<div class="Title">Payload</div>
+								<a href="/api/admin/r2/${payloadKey}${tokenParam}">Open payload JSON</a>
+							</div>`
+						: ''}
+					${imageKey
+						? html`<div class="Section">
+								<div class="Title">Image</div>
+								<a href="/api/admin/r2/${imageKey}${tokenParam}">Open image</a>
+							</div>`
+						: ''}
+					${row.currentWorkoutDefinitionJson
+						? html`<div class="Section">
+								<div class="Title">Current Workout Definition</div>
+								<pre>${row.currentWorkoutDefinitionJson}</pre>
+							</div>`
+						: ''}
+					${row.currentTimerPlanJson
+						? html`<div class="Section">
+								<div class="Title">Current Timer Plan</div>
+								<pre>${row.currentTimerPlanJson}</pre>
+							</div>`
+						: ''}
+				</body>
+			</html>`;
+
+		return c.html(String(page));
+	});
+
+	app.get('/api/admin/parse-feedback', async (c) => {
+		const adminToken = requireAdminToken(c);
+		if (!adminToken) return c.json({ error: 'unauthorized' }, 401);
+		const rows = await c.env.DB.prepare(
+			`select f.*, a.outputTitlePreview, a.inputTextPreview, a.inputUrl
+       from parse_feedback f
+       left join parse_attempts a on a.parseId = f.parseId
+       order by f.createdAt desc
+       limit 200`,
+		).all();
+		return c.json({ items: rows.results });
+	});
+
+	app.get('/api/admin/parse-feedback/:feedbackId', async (c) => {
+		const adminToken = requireAdminToken(c);
+		if (!adminToken) return c.json({ error: 'unauthorized' }, 401);
+		const feedbackId = c.req.param('feedbackId');
+		const row = await c.env.DB.prepare(
+			`select f.*, a.requestId, a.inputKind, a.inputTextPreview, a.inputUrl, a.outputTitlePreview,
+              a.errorCode, a.errorMessage, a.payloadR2Key, a.payloadSha256, a.inputImageKey
+       from parse_feedback f
+       left join parse_attempts a on a.parseId = f.parseId
+       where f.feedbackId = ?`,
+		)
+			.bind(feedbackId)
+			.first();
+		if (!row) return c.json({ error: 'not_found' }, 404);
+		return c.json(row);
+	});
+
+	app.get('/api/admin/r2/*', async (c) => {
+		const adminToken = requireAdminToken(c);
+		if (!adminToken) return c.json({ error: 'unauthorized' }, 401);
+		const rawKey = c.req.param('*');
+		const key = rawKey?.trim();
+		if (!key || !isValidR2Key(key)) return c.json({ error: 'bad_request' }, 400);
+		const object = await c.env.OG_IMAGES.get(key);
+		if (!object) return c.json({ error: 'not_found' }, 404);
+		const headers = new Headers();
+		object.writeHttpMetadata(headers);
+		headers.set('cache-control', 'no-store');
+		if (!headers.get('content-type')) {
+			headers.set('content-type', 'application/octet-stream');
+		}
+		return new Response(object.body, { headers });
 	});
 
 	// Dev/admin endpoint for programmatic DB migrations (Better Auth schema + plugins).

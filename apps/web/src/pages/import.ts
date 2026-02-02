@@ -4,6 +4,7 @@ import {
   ensureAnonymousSession,
   listDefinitions,
   parseWorkout,
+  submitParseFeedback,
   type DefinitionListItem,
 } from '../api';
 import { navigate } from '../router';
@@ -101,6 +102,7 @@ export function renderImportPage(root: HTMLElement) {
   let selectedFile: File | null = null;
   let selectedImageUrl: string | null = null;
   let sparkleIntervalId: ReturnType<typeof setInterval> | null = null;
+  let lastParseError: { parseId: string; category: string } | null = null;
 
   // Sparkle generation
   const createSparkle = () => {
@@ -190,6 +192,104 @@ export function renderImportPage(root: HTMLElement) {
     }
 
     statusEl.append(titleEl, tableEl);
+  };
+
+  const openFeedbackDialog = (opts: { parseId: string; category: string }) => {
+    const lastFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const overlay = document.createElement('div');
+    overlay.className = 'ConfirmDialog';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    const titleId = `feedback-title-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`;
+    overlay.setAttribute('aria-labelledby', titleId);
+
+    const card = document.createElement('div');
+    card.className = 'ConfirmDialogCard FeedbackDialogCard';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'ConfirmDialogTitle';
+    titleEl.id = titleId;
+    titleEl.textContent = 'Timer looks wrong';
+
+    const descEl = document.createElement('div');
+    descEl.className = 'ConfirmDialogDescription';
+    descEl.textContent =
+      'Tell us what it should look like. We’ll include your original input and the timer we tried to build.';
+
+    const noteEl = document.createElement('textarea');
+    noteEl.className = 'FeedbackTextarea';
+    noteEl.placeholder = 'What should the timer have looked like?';
+    noteEl.setAttribute('aria-label', 'Report details');
+    noteEl.rows = 4;
+
+    const actions = document.createElement('div');
+    actions.className = 'FeedbackActions';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'GhostBtn';
+    cancelBtn.textContent = 'Cancel';
+
+    const sendBtn = document.createElement('button');
+    sendBtn.type = 'button';
+    sendBtn.className = 'PrimaryBtn';
+    sendBtn.textContent = 'Send report';
+
+    actions.append(cancelBtn, sendBtn);
+    card.append(titleEl, descEl, noteEl, actions);
+    overlay.appendChild(card);
+
+    const close = () => {
+      document.removeEventListener('keydown', onKeyDown);
+      overlay.remove();
+      lastFocused?.focus();
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+      }
+    };
+
+    cancelBtn.addEventListener('click', close);
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) close();
+    });
+
+    sendBtn.addEventListener('click', async () => {
+      if (!opts.parseId) return;
+      sendBtn.disabled = true;
+      try {
+        await submitParseFeedback({
+          parseId: opts.parseId,
+          category: opts.category,
+          note: noteEl.value.trim() || undefined,
+          pageUrl: window.location.href,
+          userAgent: navigator.userAgent,
+        });
+        showToast('Report sent. Thank you!', 'ok');
+        close();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        showToast(message || 'Could not send report.', 'error');
+        sendBtn.disabled = false;
+      }
+    });
+
+    document.body.appendChild(overlay);
+    document.addEventListener('keydown', onKeyDown);
+    noteEl.focus();
+  };
+
+  const appendReportButton = (opts: { parseId: string; category: string }) => {
+    const reportBtn = document.createElement('button');
+    reportBtn.type = 'button';
+    reportBtn.className = 'GhostBtn';
+    reportBtn.textContent = "This didn't import right";
+    reportBtn.addEventListener('click', () => openFeedbackDialog(opts));
+    statusEl.appendChild(reportBtn);
   };
 
   const setStatus = (msg: string, tone: 'muted' | 'error' | 'ok' = 'muted') =>
@@ -471,9 +571,11 @@ export function renderImportPage(root: HTMLElement) {
         text: workoutText,
         url,
       });
+      lastParseError = null;
       const { definitionId } = await createDefinition({
         workoutDefinition: parsed.workoutDefinition,
         source: parsed.source,
+        parseId: parsed.parseId,
       });
       haptics.success();
 
@@ -487,6 +589,16 @@ export function renderImportPage(root: HTMLElement) {
       haptics.error();
       hideGenerateOverlay();
       setStatusErrorTable(friendlyErrorTable(e));
+      const err = e instanceof ApiError ? e : null;
+      lastParseError = err?.parseId
+        ? {
+            parseId: err.parseId,
+            category: err.code ?? 'parse_failed',
+          }
+        : null;
+      if (lastParseError) {
+        appendReportButton(lastParseError);
+      }
       generateEl.disabled = false;
     }
   };

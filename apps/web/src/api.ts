@@ -123,6 +123,8 @@ export class ApiError extends Error {
   status: number;
   code?: string;
   raw?: string;
+  parseId?: string;
+  requestId?: string;
 
   constructor(status: number, message: string, opts?: { code?: string; raw?: string }) {
     super(message);
@@ -172,15 +174,19 @@ const readApiError = async (res: Response): Promise<ApiError> => {
 
   let code: string | undefined;
   let rawMessage: string | undefined;
+  let parseId: string | undefined;
   if (json && typeof json === 'object' && !Array.isArray(json)) {
     const record = json as Record<string, unknown>;
     if (typeof record.error === 'string') code = record.error;
     if (typeof record.message === 'string') rawMessage = record.message;
+    if (typeof record.parseId === 'string') parseId = record.parseId;
   }
 
   const message = userMessageForApiError(res.status, code);
   const raw = (rawMessage ?? rawText).slice(0, 800);
-  return new ApiError(res.status, message, { code, raw });
+  const err = new ApiError(res.status, message, { code, raw });
+  err.parseId = parseId;
+  return err;
 };
 
 const throwApiError = async (res: Response): Promise<never> => {
@@ -212,6 +218,7 @@ export type ParseResponse = {
   timerPlan: TimerPlan;
   assumptions: string[];
   source: { kind: 'text' | 'url' | 'image'; preview: string };
+  parseId?: string;
 };
 
 export async function parseWorkout(input: {
@@ -245,6 +252,7 @@ export async function parseWorkout(input: {
     });
     if (!res.ok) {
       const err = await readApiError(res);
+      err.requestId = requestId;
       console.error('[api] parseWorkout failed', {
         requestId,
         status: err.status,
@@ -254,8 +262,10 @@ export async function parseWorkout(input: {
       throw err;
     }
     const json = (await res.json()) as any;
+    const parseId = typeof json?.parseId === 'string' ? json.parseId : undefined;
     return {
       ...json,
+      parseId,
       workoutDefinition: WorkoutDefinitionSchema.parse(json.workoutDefinition),
       timerPlan: TimerPlanSchema.parse(json.timerPlan),
     } as ParseResponse;
@@ -269,6 +279,7 @@ export async function parseWorkout(input: {
   });
   if (!res.ok) {
     const err = await readApiError(res);
+    err.requestId = requestId;
     console.error('[api] parseWorkout failed', {
       requestId,
       status: err.status,
@@ -278,8 +289,10 @@ export async function parseWorkout(input: {
     throw err;
   }
   const json = (await res.json()) as any;
+  const parseId = typeof json?.parseId === 'string' ? json.parseId : undefined;
   return {
     ...json,
+    parseId,
     workoutDefinition: WorkoutDefinitionSchema.parse(json.workoutDefinition),
     timerPlan: TimerPlanSchema.parse(json.timerPlan),
   } as ParseResponse;
@@ -310,6 +323,7 @@ export async function createRun(
 export async function createDefinition(input: {
   workoutDefinition: WorkoutDefinition;
   source?: { kind?: string; preview?: string };
+  parseId?: string;
 }): Promise<{ definitionId: string }> {
   const workoutDefinition = WorkoutDefinitionSchema.parse(input.workoutDefinition);
   const idempotencyKey = createIdempotencyKey();
@@ -325,6 +339,26 @@ export async function createDefinition(input: {
   );
   if (!res.ok) await throwApiError(res);
   return (await res.json()) as { definitionId: string };
+}
+
+export async function submitParseFeedback(input: {
+  parseId?: string;
+  definitionId?: string;
+  category?: string;
+  note?: string;
+  currentWorkoutDefinition?: WorkoutDefinition;
+  currentTimerPlan?: TimerPlan;
+  pageUrl?: string;
+  userAgent?: string;
+}): Promise<{ feedbackId: string; parseId?: string; definitionId?: string }> {
+  const res = await fetchWithRetries('/api/parse-feedback', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) await throwApiError(res);
+  return (await res.json()) as { feedbackId: string; parseId?: string; definitionId?: string };
 }
 
 export async function patchDefinitionWorkoutDefinition(

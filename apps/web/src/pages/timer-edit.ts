@@ -13,6 +13,7 @@ import {
   ensureAnonymousSession,
   getDefinition,
   patchDefinitionWorkoutDefinition,
+  submitParseFeedback,
 } from '../api';
 import { getRoute, navigate } from '../router';
 import { appHeader, setupAppHeader } from '../components/header';
@@ -211,6 +212,13 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
             </svg>
             Get Set
           </button>
+          <button class="DefinitionAction DefinitionAction--report" id="reportParse" type="button" aria-label="Timer looks wrong">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </button>
         </div>
       </main>
 
@@ -237,6 +245,7 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
   const addRootMenu = root.querySelector<HTMLDivElement>('#addRootMenu')!;
   const startCountdownEl = root.querySelector<HTMLButtonElement>('#startCountdown')!;
   const shareHeaderEl = root.querySelector<HTMLButtonElement>('#shareWorkoutHeader')!;
+  const reportParseEl = root.querySelector<HTMLButtonElement>('#reportParse')!;
 
   let activeDefinitionId = definitionId;
   let workoutDefinition: WorkoutDefinition | null = null;
@@ -244,9 +253,105 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
   let autosaveTimer: number | null = null;
   let autosaveInFlight: Promise<void> | null = null;
 
+  const openFeedbackDialog = () => {
+    if (!activeDefinitionId) return;
+    const lastFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const overlay = document.createElement('div');
+    overlay.className = 'ConfirmDialog';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    const titleId = `feedback-title-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`;
+    overlay.setAttribute('aria-labelledby', titleId);
+
+    const card = document.createElement('div');
+    card.className = 'ConfirmDialogCard FeedbackDialogCard';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'ConfirmDialogTitle';
+    titleEl.id = titleId;
+    titleEl.textContent = 'Timer looks wrong';
+
+    const descEl = document.createElement('div');
+    descEl.className = 'ConfirmDialogDescription';
+    descEl.textContent =
+      'Tell us what it should look like. We’ll include your original workout and your edits.';
+
+    const noteEl = document.createElement('textarea');
+    noteEl.className = 'FeedbackTextarea';
+    noteEl.placeholder = 'What should the timer have looked like?';
+    noteEl.setAttribute('aria-label', 'Report details');
+    noteEl.rows = 4;
+
+    const actions = document.createElement('div');
+    actions.className = 'FeedbackActions';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'GhostBtn';
+    cancelBtn.textContent = 'Cancel';
+
+    const sendBtn = document.createElement('button');
+    sendBtn.type = 'button';
+    sendBtn.className = 'PrimaryBtn';
+    sendBtn.textContent = 'Send report';
+
+    actions.append(cancelBtn, sendBtn);
+    card.append(titleEl, descEl, noteEl, actions);
+    overlay.appendChild(card);
+
+    const close = () => {
+      document.removeEventListener('keydown', onKeyDown);
+      overlay.remove();
+      lastFocused?.focus();
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+      }
+    };
+
+    cancelBtn.addEventListener('click', close);
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) close();
+    });
+
+    sendBtn.addEventListener('click', async () => {
+      sendBtn.disabled = true;
+      try {
+        await ensureAnonymousSession();
+        await submitParseFeedback({
+          definitionId: activeDefinitionId,
+          category: 'bad_parse',
+          note: noteEl.value.trim() || undefined,
+          currentWorkoutDefinition: workoutDefinition ?? undefined,
+          currentTimerPlan: workoutDefinition
+            ? compileWorkoutDefinition(workoutDefinition)
+            : undefined,
+          pageUrl: window.location.href,
+          userAgent: navigator.userAgent,
+        });
+        showToast('Report sent. Thank you!', 'ok');
+        close();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        showToast(message || 'Could not send report.', 'error');
+        sendBtn.disabled = false;
+      }
+    });
+
+    document.body.appendChild(overlay);
+    document.addEventListener('keydown', onKeyDown);
+    noteEl.focus();
+  };
+
   let noteAutosizeRaf: number | null = null;
   let builderResizeObserver: ResizeObserver | null = null;
   let documentClickHandler: ((e: MouseEvent) => void) | null = null;
+
+  reportParseEl.addEventListener('click', () => openFeedbackDialog());
   const autosizeAllNotes = () => {
     builderTreeEl
       .querySelectorAll<HTMLTextAreaElement>('[data-testid="block-note-input"]')

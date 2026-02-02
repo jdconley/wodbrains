@@ -57,6 +57,9 @@ const ParseResultSchema = z.object({
 const DEFAULT_WORKOUT_TITLE = 'Workout';
 const MAX_TITLE_LENGTH = 80;
 
+export const PARSE_MODEL_ID = 'gemini-3-pro-preview';
+export const TITLE_MODEL_ID = 'gemini-2.5-flash-lite';
+
 export const sanitizeWorkoutTitle = (value: unknown): string | undefined => {
 	if (typeof value !== 'string') return undefined;
 	let text = value.replace(/\r\n/g, '\n').trim();
@@ -79,6 +82,157 @@ export const sanitizeWorkoutTitle = (value: unknown): string | undefined => {
 
 export const selectWorkoutTitle = (parsedTitle: unknown, generatedTitle: unknown): string =>
 	sanitizeWorkoutTitle(parsedTitle) ?? sanitizeWorkoutTitle(generatedTitle) ?? DEFAULT_WORKOUT_TITLE;
+
+type PromptSnapshot = {
+	parseSystem: string;
+	parseUser: string;
+	titleSystem: string;
+	titleUser: string;
+	inputSections: string[];
+};
+
+type ParseMeta = {
+	promptSnapshot: PromptSnapshot;
+	model: { parseModelId: string; titleModelId: string };
+	raw: { parseText?: string; titleText?: string };
+	providerMetadata?: { parse?: any; title?: any };
+	urlStatuses?: Array<{ retrievedUrl?: string; status?: string }>;
+};
+
+export const buildPromptSnapshot = (input: { text?: string; url?: string; hasImage: boolean }): PromptSnapshot => {
+	const system = [
+		'You convert workout descriptions into a structured workout definition.',
+		'IMPORTANT: If a workout URL is provided, you must use the URL Context tool to read it before answering.',
+		'Do not guess or use prior knowledge. Only use information that is present in the provided inputs or retrieved via URL Context.',
+		'Return a JSON object that matches the provided schema.',
+		'If anything is ambiguous or missing, omit the field and add a short assumption.',
+		'Exception: always include workoutDefinition.title. If there is no explicit title, create a short, playful title using analogy or metaphor (PG, no emojis).',
+		'The workoutDefinition.blocks field is an ordered list of blocks (can be nested).',
+		"Allowed block types: 'sequence', 'repeat', 'timer', 'step', 'note'.",
+		"Use 'sequence' blocks to group named sections (Warm-up, Main Set, Finish). Put a section's steps inside its blocks array.",
+		"Use 'repeat' blocks to represent templates that repeat N times. Put the per-round items in repeat.blocks and set rounds = N.",
+		"Prefer 'timer' blocks for timeboxed work/rest. Use 'step' blocks for non-timed movement instructions or rep schemes not already captured by a timer.",
+		"For 'timer' blocks, include durationMs (ms) when known and set mode to 'countdown' unless it is open-ended. Do not use the generic label 'Timer' when a specific label is available.",
+		[
+			'Rounds / repeats:',
+			'- If the workout specifies "N Rounds", "N Sets", "Repeat N times", or "Repeat N×", treat it as repeating a template N times.',
+			'- Set workoutDefinition.scoring = { type: "rounds", rounds: N }.',
+			'- If the workout says "Sets", set workoutDefinition.scoring.label = "Set" (default label is "Round").',
+			'- Do NOT output the rounds header line (e.g. "4 Rounds") as a step or note.',
+			'- Put the per-round items in workoutDefinition.blocks (they will be wrapped into a repeat by downstream logic).',
+			'- If the workout is sectioned (e.g. Warm-up/Main Set/Finish), prefer explicit repeat blocks inside the section and leave workoutDefinition.scoring unset.',
+		].join('\\n'),
+		[
+			'Timed movement lines:',
+			'- If a line is of the form "1 Min <movement>" or "2 Minutes <movement>", represent it as a single countdown timer block.',
+			'- Set durationMs to the exact duration in milliseconds (1 minute = 60000, 2 minutes = 120000).',
+			'- Set label to ONLY the movement (e.g. "Dumbbell Power Clean"), and do NOT include the duration text in the label.',
+			'- Do NOT also emit a step or note for the same timed movement line.',
+			'- Countdown timers with their own labels do not need nested items.',
+		].join('\\n'),
+		[
+			'Rest between rounds/sets:',
+			'- If you see "Rest N Minutes Between Rounds" or "Rest N Minutes Between Sets", output a single countdown timer labeled "Rest" with durationMs set correctly.',
+			'- Include that rest timer inside the round template (as the last block in workoutDefinition.blocks).',
+			'- Do NOT also emit a separate note/step for this rest line, and do NOT emit duplicate rest timers.',
+		].join('\\n'),
+		[
+			'Sets of AMRAP:',
+			'- If the workout says "N Sets" and "Each Set is a X Min AMRAP", treat it as repeating a template N times.',
+			'- Set workoutDefinition.scoring = { type: "rounds", rounds: N, label: "Set" }.',
+			'- Add a countdown timer block for the AMRAP (label "AMRAP", durationMs = X minutes in ms).',
+			'- Put the movement lines as step blocks immediately after that timer.',
+			'- If there is a "Rest N Minutes Between Sets" line, add a countdown timer labeled "Rest" after the steps.',
+			'- Do NOT output the set header line as a step or note.',
+		].join('\\n'),
+		[
+			'Clock workouts:',
+			'- Interpret phrases like "On a N Minute Clock", "On an N-minute clock", or "N-minute clock" as an AMRAP-style time cap.',
+			'- Set workoutDefinition.scoring = { type: "amrap", timeCapMs: N*60*1000 }.',
+			'- Do NOT output that clock header as a step or note.',
+			'- Do NOT also emit a countdown timer block for the same clock when scoring is set.',
+		].join('\\n'),
+		[
+			'Example (rounds with timed movements):',
+			'Input:',
+			'4 Rounds',
+			'1 Min Dumbbell Power Clean',
+			'1 Min Dumbbell Squat',
+			'1 Min Lateral Burpee Over Dumbbell',
+			'Rest 2 Minutes Between Rounds',
+			'Output:',
+			'{',
+			'  "workoutDefinition": {',
+			'    "scoring": { "type": "rounds", "rounds": 4 },',
+			'    "blocks": [',
+			'      { "type": "timer", "mode": "countdown", "durationMs": 60000, "label": "Dumbbell Power Clean" },',
+			'      { "type": "timer", "mode": "countdown", "durationMs": 60000, "label": "Dumbbell Squat" },',
+			'      { "type": "timer", "mode": "countdown", "durationMs": 60000, "label": "Lateral Burpee Over Dumbbell" },',
+			'      { "type": "timer", "mode": "countdown", "durationMs": 120000, "label": "Rest" }',
+			'    ]',
+			'  }',
+			'}',
+		].join('\\n'),
+		'If a workout includes multiple timeboxed sections (e.g. 6 min AMRAP, rest 3 min, then another 6 min AMRAP), leave scoring unset and use timers instead.',
+		'Treat workouts as a timeline of segments: work segments and rest segments, each represented by a timer block followed by its step/note lines.',
+		'If a section heading includes a total duration (e.g. "Warm-up — 15 minutes"), ensure the timers inside that section add up to the total.',
+		'If you must infer leftover time to meet a section total, include a short assumption explaining the inference.',
+		'If a workout includes a pause/break between sections, output a timer block labeled "Break" with mode "countup" and no durationMs.',
+		'For phrasing like "At minute 10–12", interpret it as a specific sub-interval within the current section and model it with explicit timers.',
+		'Marker times are not timers. Phrases like "At 6:00", "After 6 minutes", or "When the clock hits ..." indicate a transition and do not create a timer on their own.',
+		'If a transition line includes both a marker time and a segment duration (e.g. "At 6:00, Rest 3 Minutes, Then:"), create only the explicit segment timer (Rest 3 Minutes).',
+		'If a line contains multiple time values, only use the time tied to a segment keyword (Rest/AMRAP/EMOM/etc.). Ignore the marker time.',
+		'Do not emit standalone transition phrases like "Then:" or fragments like "3 Minutes, Then:" as notes or steps.',
+		'Do not output duplicate timers for the same transition and do not output consecutive Rest timers.',
+		'Global metadata (e.g. "Suggestions", "Men/Women", "Weights", "Box height", "Equipment") should be a top-level note placed before any timers or steps.',
+		'When parsing a web page, prefer the primary/Rx workout prescription. Ignore comments, user posts, and scaling/variant options unless there is no Rx section.',
+		'Set workoutDefinition.title to the web page title (document title) or the workout name heading. Prefer a descriptive title over a date code. If none exists, generate a short, playful title using analogy or metaphor.',
+		'Do NOT invent or substitute workouts, movements, or rep schemes.',
+		'Preserve units and punctuation exactly in step labels (including commas).',
+		'Do not include headings like "For time:" as a step block; encode scoring instead and then list only the workout movement lines as blocks.',
+		'Use milliseconds for time fields (timeCapMs, workMs, restMs, durationMs, timeMs).',
+	].join('\\n');
+
+	const titleSystem = [
+		'You generate a workout title from the provided inputs.',
+		'IMPORTANT: If a workout URL is provided, you must use the URL Context tool to read it before answering.',
+		'Do not guess or use prior knowledge. Only use information that is present in the provided inputs or retrieved via URL Context.',
+		'If an explicit workout name or page title exists, use it.',
+		'Otherwise, generate a short, playful title using analogy or metaphor.',
+		'Keep it concise (about 3-8 words), PG, and without emojis.',
+		'Return a JSON object that matches the provided schema.',
+	].join('\\n');
+
+	const inputSections: string[] = [];
+	if (input.text) inputSections.push(`Workout text (verbatim):\\n${input.text}`);
+	if (input.url) inputSections.push(`Workout URL:\\n${input.url}`);
+	if (!inputSections.length && input.hasImage) {
+		inputSections.push('Workout screenshot attached.');
+	}
+
+	const parseUser = [
+		'Use URL Context for any URLs in the input or embedded in text.',
+		'Extract the workout definition from the inputs and return it as workoutDefinition.',
+		'If the URL content includes multiple workout variants (e.g. scaled/intermediate/beginner), choose the main/Rx version.',
+		'',
+		...inputSections,
+	].join('\\n');
+
+	const titleUser = [
+		'Use URL Context for any URLs in the input or embedded in text.',
+		'Generate a workout title from the inputs and return it as { "title": "..." }.',
+		'',
+		...inputSections,
+	].join('\\n');
+
+	return {
+		parseSystem: `${system}\n\nReturn ONLY a single JSON object. No markdown.`,
+		titleSystem: `${titleSystem}\n\nReturn ONLY a single JSON object. No markdown.`,
+		parseUser,
+		titleUser,
+		inputSections,
+	};
+};
 
 const normalizeBlocks = (blocks: WorkoutBlock[]): WorkoutBlock[] =>
 	blocks.map((block) => {
@@ -206,6 +360,7 @@ export async function parseWorkout(
 	timerPlan: TimerPlan;
 	assumptions: string[];
 	source: { kind: 'text' | 'url' | 'image'; preview: string };
+	meta: ParseMeta;
 }> {
 	const apiKey = env.GOOGLE_GENERATIVE_AI_API_KEY;
 	if (!apiKey) {
@@ -214,8 +369,8 @@ export async function parseWorkout(
 
 	// Prefer a stable model configuration for structured outputs in Workers.
 	// Gemini 2.5 supports disabling "thinking" which helps avoid response-shape surprises.
-	const modelId = 'gemini-3-pro-preview';
-	const titleModelId = 'gemini-2.5-flash-lite';
+	const modelId = PARSE_MODEL_ID;
+	const titleModelId = TITLE_MODEL_ID;
 	const google = createGoogleGenerativeAI({ apiKey });
 	const model = google(modelId);
 	const titleModel = google(titleModelId);
@@ -363,6 +518,14 @@ export async function parseWorkout(
 		...inputSections,
 	].join('\\n');
 
+	const promptSnapshot: PromptSnapshot = {
+		parseSystem: `${system}\n\nReturn ONLY a single JSON object. No markdown.`,
+		titleSystem: `${titleSystem}\n\nReturn ONLY a single JSON object. No markdown.`,
+		parseUser: userText,
+		titleUser: titleUserText,
+		inputSections,
+	};
+
 	const imageBytes = input.image ? await input.image.arrayBuffer() : undefined;
 	const imageMediaType = input.image?.type || 'application/octet-stream';
 
@@ -404,11 +567,15 @@ export async function parseWorkout(
 		return false;
 	};
 
-	const generateWorkoutTitle = async (): Promise<string | undefined> => {
+	const generateWorkoutTitle = async (): Promise<{
+		title?: string;
+		rawText?: string;
+		providerMetadata?: any;
+	}> => {
 		try {
 			const result = await generateText({
 				model: titleModel,
-				system: `${titleSystem}\n\nReturn ONLY a single JSON object. No markdown.`,
+				system: promptSnapshot.titleSystem,
 				...(url
 					? {
 							tools: { url_context: google.tools.urlContext({}) },
@@ -433,16 +600,25 @@ export async function parseWorkout(
 				],
 			} as any);
 
-			if (!result.text?.trim()) return undefined;
-			const raw = extractJsonObject(result.text);
+			const rawText = result.text?.trim() ? result.text : undefined;
+			if (!rawText) {
+				return { title: undefined, rawText, providerMetadata: result.providerMetadata };
+			}
+			const raw = extractJsonObject(rawText);
 			const parsed = LLMWorkoutTitleSchema.safeParse(raw);
-			if (!parsed.success) return undefined;
-			return sanitizeWorkoutTitle(parsed.data.title);
+			if (!parsed.success) {
+				return { title: undefined, rawText, providerMetadata: result.providerMetadata };
+			}
+			return {
+				title: sanitizeWorkoutTitle(parsed.data.title),
+				rawText,
+				providerMetadata: result.providerMetadata,
+			};
 		} catch (err) {
 			const errName = err instanceof Error ? err.name : typeof err;
 			const errMessage = err instanceof Error ? err.message : String(err);
 			console.warn('[worker] title generation failed', { requestId, errName, errMessage });
-			return undefined;
+			return { title: undefined };
 		}
 	};
 
@@ -466,7 +642,7 @@ export async function parseWorkout(
 				// This avoids provider/runtime edge cases with structured outputs + thinking/tooling.
 				const result = await generateText({
 					model,
-					system: `${system}\n\nReturn ONLY a single JSON object. No markdown.`,
+					system: promptSnapshot.parseSystem,
 					...(url
 						? {
 								tools: { url_context: google.tools.urlContext({}) },
@@ -533,7 +709,10 @@ export async function parseWorkout(
 	}
 	const { output, providerMetadata, rawModelText: parseRawModelText } = parseOutcome.value;
 	const rawModelText = parseRawModelText;
-	const generatedTitle = titleOutcome.status === 'fulfilled' ? titleOutcome.value : undefined;
+	const titleResult = titleOutcome.status === 'fulfilled' ? titleOutcome.value : { title: undefined, rawText: undefined };
+	const generatedTitle = titleResult.title;
+	const titleRawText = titleResult.rawText;
+	const titleProviderMetadata = titleResult.providerMetadata;
 
 	const urlMetadata = providerMetadata?.google?.urlContextMetadata?.urlMetadata;
 	const urlStatuses = Array.isArray(urlMetadata)
@@ -779,10 +958,19 @@ export async function parseWorkout(
 			? url.slice(0, 300)
 			: (text ?? '').slice(0, 300);
 
+	const meta: ParseMeta = {
+		promptSnapshot,
+		model: { parseModelId: modelId, titleModelId },
+		raw: { parseText: rawModelText, titleText: titleRawText },
+		providerMetadata: { parse: providerMetadata, title: titleProviderMetadata },
+		urlStatuses,
+	};
+
 	return {
 		workoutDefinition,
 		timerPlan,
 		assumptions: result.assumptions ?? [],
 		source: { kind: sourceKind, preview },
+		meta,
 	};
 }

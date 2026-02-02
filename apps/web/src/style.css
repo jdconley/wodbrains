@@ -1329,7 +1329,7 @@ body {
 .ToastHost {
   position: fixed;
   left: 50%;
-  bottom: max(16px, env(safe-area-inset-bottom));
+  top: max(16px, env(safe-area-inset-top));
   transform: translateX(-50%);
   z-index: 220;
   display: flex;
@@ -1340,13 +1340,13 @@ body {
 
 .Toast {
   pointer-events: none;
-  padding: 10px 14px;
+  padding: 10px 18px;
   border-radius: var(--radius-full);
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
   color: var(--text);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   opacity: 1;
   transition:
     opacity 0.15s ease-out,
@@ -1354,18 +1354,18 @@ body {
 }
 
 .Toast[data-tone='ok'] {
-  background: var(--accent-subtle);
-  color: var(--accent);
+  background: var(--accent);
+  color: var(--text-inverse);
 }
 
 .Toast[data-tone='error'] {
-  background: var(--danger-subtle);
-  color: var(--danger);
+  background: var(--danger);
+  color: #fff;
 }
 
 .Toast--hide {
   opacity: 0;
-  transform: translateY(4px);
+  transform: translateY(-4px);
 }
 
 .SegmentLabel {
@@ -2768,6 +2768,34 @@ body {
 .ConfirmDialogDescription {
   font-size: 14px;
   color: var(--text-muted);
+}
+
+.FeedbackDialogCard {
+  gap: 16px;
+}
+
+.FeedbackTextarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.FeedbackTextarea::placeholder {
+  color: var(--text-muted);
+}
+
+.FeedbackActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
 }
 
 /* ---- Timer overlay ---- */

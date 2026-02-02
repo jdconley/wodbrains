@@ -39,6 +39,20 @@ Optional: copy `apps/worker/.dev.vars.example` to `apps/worker/.dev.vars` and fi
 
 - `BETTER_AUTH_SECRET`
 - `GOOGLE_GENERATIVE_AI_API_KEY`
+- `MIGRATE_TOKEN` (admin viewer access)
+- `GITHUB_ISSUES_TOKEN` (GitHub issue creation)
+- `GITHUB_ISSUES_REPO` (e.g. `owner/repo`)
+- `GITHUB_ISSUES_LABELS` (optional, comma-separated)
+
+### Parse feedback viewer (admin)
+
+Open the admin viewer at:
+
+```
+https://wodbrains.com/admin/parse-feedback?token=YOUR_TOKEN
+```
+
+Use the same `MIGRATE_TOKEN` value configured for the Worker.
 
 ### Required Cloudflare env vars (local + CI)
 
@@ -76,6 +90,10 @@ The production deploy workflow expects these GitHub Secrets to exist:
 - `CLOUDFLARE_ROUTE_WWW`
 - `BETTER_AUTH_SECRET`
 - `GOOGLE_GENERATIVE_AI_API_KEY`
+- `MIGRATE_TOKEN` (admin viewer)
+- `GITHUB_ISSUES_TOKEN` (optional)
+- `GITHUB_ISSUES_REPO` (optional)
+- `GITHUB_ISSUES_LABELS` (optional)
 
 1. Create the D1 database (first time only):
 

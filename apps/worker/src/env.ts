@@ -17,6 +17,11 @@ export interface Env {
 	// Dev/admin utilities
 	MIGRATE_TOKEN?: string;
 
+	// GitHub issues (parse feedback notifications)
+	GITHUB_ISSUES_TOKEN?: string;
+	GITHUB_ISSUES_REPO?: string;
+	GITHUB_ISSUES_LABELS?: string;
+
 	// LLM (Gemini via Vercel AI SDK)
 	GOOGLE_GENERATIVE_AI_API_KEY?: string;
 
