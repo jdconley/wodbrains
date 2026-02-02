@@ -237,17 +237,12 @@ export class RunActor extends DurableObject {
 			const run = await this.readRun();
 			if (!run) return new Response('Run not initialized', { status: 404 });
 			if (run.events.some((event) => event.type === 'start')) {
-				return json(
-					{ error: 'run_started', message: 'Run settings cannot change after start.' },
-					{ status: 409 },
-				);
+				return json({ error: 'run_started', message: 'Run settings cannot change after start.' }, { status: 409 });
 			}
 
 			const body = SettingsUpdateSchema.parse(await request.json());
 			const nextTimeScale =
-				typeof body.timeScale === 'number' && Number.isFinite(body.timeScale)
-					? clampTimeScale(body.timeScale)
-					: run.settings.timeScale;
+				typeof body.timeScale === 'number' && Number.isFinite(body.timeScale) ? clampTimeScale(body.timeScale) : run.settings.timeScale;
 			run.settings = { ...run.settings, timeScale: nextTimeScale };
 			const nowMonoMs = await this.nowMonoMs();
 			run.updatedAtMs = nowMonoMs;

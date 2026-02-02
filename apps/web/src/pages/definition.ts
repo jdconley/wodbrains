@@ -139,8 +139,10 @@ export async function renderDefinitionPage(root: HTMLElement, definitionId: stri
     const ogImageKey =
       updatedAt != null ? `wb_og_def_v1_${definitionId}_${Math.round(updatedAt)}` : null;
     const ogImageUrl = ogImageKey
-      ? new URL(`/og/definitions/${encodeURIComponent(ogImageKey)}.png`, window.location.origin)
-          .toString()
+      ? new URL(
+          `/og/definitions/${encodeURIComponent(ogImageKey)}.png`,
+          window.location.origin,
+        ).toString()
       : undefined;
 
     updateMeta({
@@ -159,10 +161,11 @@ export async function renderDefinitionPage(root: HTMLElement, definitionId: stri
     setStatus('', 'muted');
 
     const shareWorkoutLink = async () => {
-      const url = new URL(`/w/${encodeURIComponent(definitionId)}`, window.location.origin).toString();
-      const title = description.title?.trim()
-        ? `WOD Brains · ${description.title}`
-        : 'WOD Brains';
+      const url = new URL(
+        `/w/${encodeURIComponent(definitionId)}`,
+        window.location.origin,
+      ).toString();
+      const title = description.title?.trim() ? `WOD Brains · ${description.title}` : 'WOD Brains';
       const text = 'Workout at the same time with friends. Start this workout on WOD Brains.';
       try {
         if (navigator.share) {

@@ -19,7 +19,12 @@ import {
 } from '../api';
 import { getRoute, navigate } from '../router';
 import { type DisplayNode, timerPlanSegmentsToDisplayNodes } from '../display/compact';
-import { appHeader, setupAppHeader, setAppHeaderTitle, setAppHeaderVisible } from '../components/header';
+import {
+  appHeader,
+  setupAppHeader,
+  setAppHeaderTitle,
+  setAppHeaderVisible,
+} from '../components/header';
 import { updateMeta } from '../meta';
 import { haptics } from '../utils/haptics';
 import { showToast } from '../components/toast';
@@ -717,7 +722,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   };
 
   const getDisplaySplits = () => {
-    const serverSplits = canControl ? simDerived.splits ?? [] : [];
+    const serverSplits = canControl ? (simDerived.splits ?? []) : [];
     const merged = new Map<
       string,
       { id: string; atMs: number; elapsedMs: number; label?: string }
@@ -783,7 +788,11 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   const updateCornerInfo = () => {
     const roleLabel = canControl ? 'Leader' : 'Participant';
     const showMultiplayer = onlineCount > 1;
-    const line = showMultiplayer ? `${roleLabel} · ${onlineCount} online` : canControl ? '' : 'Participant';
+    const line = showMultiplayer
+      ? `${roleLabel} · ${onlineCount} online`
+      : canControl
+        ? ''
+        : 'Participant';
     const showScale = timeScale !== 1;
     const scaleLabel = `x ${timeScale}`;
     const key = `${line}|scale:${showScale ? scaleLabel : 'none'}`;
@@ -882,7 +891,9 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
         if (shouldShowRoundCounters) {
           const labelText = counterList
             .map((counter) =>
-              counter.target == null ? `${counter.current}` : `${counter.current}/${counter.target}`,
+              counter.target == null
+                ? `${counter.current}`
+                : `${counter.current}/${counter.target}`,
             )
             .join(' · ');
 
@@ -1464,7 +1475,13 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       }
     }
 
-    if (autostart && !autostarted && canControl && simDerived.status === 'idle' && !simDerived.startedAtMs) {
+    if (
+      autostart &&
+      !autostarted &&
+      canControl &&
+      simDerived.status === 'idle' &&
+      !simDerived.startedAtMs
+    ) {
       autostarted = true;
       void scheduleStart();
     }

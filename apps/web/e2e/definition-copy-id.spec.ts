@@ -58,7 +58,10 @@ test('clone flow preserves server workoutDefinition.id', async ({ page }) => {
       await route.fulfill({
         status: 409,
         contentType: 'application/json',
-        body: JSON.stringify({ error: 'timer_locked', message: 'Timer cannot be edited after it starts.' }),
+        body: JSON.stringify({
+          error: 'timer_locked',
+          message: 'Timer cannot be edited after it starts.',
+        }),
       });
       return;
     }

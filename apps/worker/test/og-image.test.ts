@@ -17,4 +17,3 @@ describe('OG image template', () => {
 		expect(html).toMatch(/\.Text\s*\{[\s\S]*?flex-direction:\s*column\s*;[\s\S]*?\}/);
 	});
 });
-

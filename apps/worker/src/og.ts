@@ -8,8 +8,7 @@ export const OG_IMAGE_PREFIX = 'wb_og_def_v1';
 
 const DEFAULT_TITLE = 'Workout Timer';
 const MAX_TITLE_LENGTH = 70;
-const STUB_PNG_BASE64 =
-	'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAA3X5yUAAAAASUVORK5CYII=';
+const STUB_PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAA3X5yUAAAAASUVORK5CYII=';
 
 const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
   <!-- Left flexing arm -->
@@ -80,12 +79,7 @@ const normalizeTitle = (title?: string | null) => {
 };
 
 const escapeHtml = (value: string) =>
-	value
-		.replaceAll('&', '&amp;')
-		.replaceAll('<', '&lt;')
-		.replaceAll('>', '&gt;')
-		.replaceAll('"', '&quot;')
-		.replaceAll("'", '&#39;');
+	value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 
 const buildDefinitionOgHtml = (title: string) => {
 	const safeTitle = escapeHtml(normalizeTitle(title));
@@ -162,8 +156,7 @@ export const __testing = {
 	buildDefinitionOgHtml,
 };
 
-export const buildDefinitionOgKey = (definitionId: string, updatedAt: number) =>
-	`${OG_IMAGE_PREFIX}_${definitionId}_${updatedAt}`;
+export const buildDefinitionOgKey = (definitionId: string, updatedAt: number) => `${OG_IMAGE_PREFIX}_${definitionId}_${updatedAt}`;
 
 export const buildDefinitionOgObjectKey = (ogImageKey: string) => `og/definitions/${ogImageKey}.png`;
 
@@ -181,10 +174,7 @@ export async function renderDefinitionOgPng(params: {
 		return bytes;
 	}
 
-	const [{ ImageResponse, cache }, { t }] = await Promise.all([
-		import('@cf-wasm/og/workerd'),
-		import('@cf-wasm/og/html-to-react'),
-	]);
+	const [{ ImageResponse, cache }, { t }] = await Promise.all([import('@cf-wasm/og/workerd'), import('@cf-wasm/og/html-to-react')]);
 
 	cache.setExecutionContext(params.ctx);
 	const html = buildDefinitionOgHtml(params.title ?? DEFAULT_TITLE);

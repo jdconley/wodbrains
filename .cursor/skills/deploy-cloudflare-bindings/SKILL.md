@@ -15,6 +15,7 @@ This repo generates `apps/worker/wrangler.jsonc` from env vars via `scripts/gene
 - If the generator needs new env vars, add them using `requiredEnv()` if it must be present in CI, or `optionalEnv() ?? <default>` when a safe default exists.
 
 Example (R2 bucket):
+
 - New env var: `CLOUDFLARE_R2_BUCKET_<NAME>`
 - New wrangler section: `r2_buckets: [{ binding: '<BINDING_NAME>', bucket_name: <env> }]`
 
@@ -55,8 +56,9 @@ pnpm --filter worker exec wrangler r2 bucket create <bucket_name>
 ```
 
 Notes:
+
 - This is a one-time operation per bucket name.
-- Bucket names are global *within your Cloudflare account* (not global across all users).
+- Bucket names are global _within your Cloudflare account_ (not global across all users).
 
 ### 5) Deploy + migrate (if needed)
 
@@ -77,5 +79,6 @@ pnpm --filter worker deploy
 ### “CI deploy fails after adding a binding”
 
 Root causes are usually:
+
 - The Cloudflare resource (bucket/kv) doesn’t exist yet in prod, **or**
 - `WRANGLER_GEN_STRICT=1` is enabled but the new `CLOUDFLARE_*` env var was not provided in CI (tests step and/or strict regeneration step).

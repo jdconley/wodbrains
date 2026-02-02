@@ -1,0 +1,4 @@
+#!/bin/sh
+pnpm lint:fix
+pnpm format
+git add -A

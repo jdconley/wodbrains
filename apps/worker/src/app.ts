@@ -109,8 +109,7 @@ const getPlanTitle = (timerPlanJson?: string | null): string | null => {
 	return null;
 };
 
-const buildDefinitionOgUrl = (ogImageKey?: string | null) =>
-	ogImageKey ? `${OG_IMAGE_URL_PREFIX}/${ogImageKey}.png` : DEFAULT_OG_IMAGE;
+const buildDefinitionOgUrl = (ogImageKey?: string | null) => (ogImageKey ? `${OG_IMAGE_URL_PREFIX}/${ogImageKey}.png` : DEFAULT_OG_IMAGE);
 
 const formatMetaDescription = (opts: { preview?: string | null; title?: string | null }) => {
 	const trimmedPreview = opts.preview?.trim();
@@ -674,15 +673,7 @@ export function createApp() {
            set workoutDefinitionJson = ?, timerPlanJson = ?, ogImageKey = ?, dataVersion = ?, updatedAt = ?
            where definitionId = ? and ownerUserId = ?`,
 				)
-					.bind(
-						JSON.stringify(workoutDefinition),
-						JSON.stringify(timerPlan),
-						ogImageKey,
-						LATEST_DATA_VERSION,
-						now,
-						definitionId,
-						userId,
-					)
+					.bind(JSON.stringify(workoutDefinition), JSON.stringify(timerPlan), ogImageKey, LATEST_DATA_VERSION, now, definitionId, userId)
 					.run();
 
 				if (!res.success || res.meta.changes === 0) {
@@ -873,9 +864,7 @@ export function createApp() {
 		try {
 			const userId = await requireUserId(c.env, c.req.raw);
 			const runId = c.req.param('runId');
-			const row = await c.env.DB.prepare(`select ownerUserId from timer_runs where runId = ?`)
-				.bind(runId)
-				.first<{ ownerUserId: string }>();
+			const row = await c.env.DB.prepare(`select ownerUserId from timer_runs where runId = ?`).bind(runId).first<{ ownerUserId: string }>();
 			if (!row) return c.json({ error: 'not_found' }, 404);
 			return c.json({ canControl: row.ownerUserId === userId });
 		} catch (err) {
@@ -900,9 +889,7 @@ export function createApp() {
 			const runId = c.req.param('runId');
 			const stub = c.env.RUN_ACTOR.getByName(runId);
 
-			const row = await c.env.DB.prepare(`select ownerUserId from timer_runs where runId = ?`)
-				.bind(runId)
-				.first<{ ownerUserId: string }>();
+			const row = await c.env.DB.prepare(`select ownerUserId from timer_runs where runId = ?`).bind(runId).first<{ ownerUserId: string }>();
 			if (!row) return c.json({ error: 'not_found' }, 404);
 			if (row.ownerUserId !== userId) {
 				return c.json({ error: 'view_only', message: 'This run is view-only in this browser.' }, 403);
@@ -961,9 +948,7 @@ export function createApp() {
 			const runId = c.req.param('runId');
 			const stub = c.env.RUN_ACTOR.getByName(runId);
 
-			const row = await c.env.DB.prepare(`select ownerUserId from timer_runs where runId = ?`)
-				.bind(runId)
-				.first<{ ownerUserId: string }>();
+			const row = await c.env.DB.prepare(`select ownerUserId from timer_runs where runId = ?`).bind(runId).first<{ ownerUserId: string }>();
 			if (!row) return c.json({ error: 'not_found' }, 404);
 			if (row.ownerUserId !== userId) {
 				return c.json({ error: 'view_only', message: 'This run is view-only in this browser.' }, 403);

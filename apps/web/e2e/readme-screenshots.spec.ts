@@ -106,7 +106,10 @@ test('readme screenshots', async ({ browser }) => {
   await leader.waitForTimeout(4500);
   await expect(leader.locator('#tapHint')).not.toHaveClass(/visible/);
   await expect(participant.locator('#tapHint')).not.toHaveClass(/visible/);
-  await leader.screenshot({ path: path.join(SCREENSHOTS_DIR, 'multiplayer-leader.png'), fullPage: true });
+  await leader.screenshot({
+    path: path.join(SCREENSHOTS_DIR, 'multiplayer-leader.png'),
+    fullPage: true,
+  });
   await participant.screenshot({
     path: path.join(SCREENSHOTS_DIR, 'multiplayer-participant.png'),
     fullPage: true,

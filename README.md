@@ -30,13 +30,14 @@ Leader is authoritative for the run state; participants follow along in sync and
 - Participant controls are hidden to keep the view clean and read-only.
 - Presence and countdown are synchronized for everyone.
 
-| Leader | Participant |
-| --- | --- |
+| Leader                                                  | Participant                                                       |
+| ------------------------------------------------------- | ----------------------------------------------------------------- |
 | ![Leader view](docs/screenshots/multiplayer-leader.png) | ![Participant view](docs/screenshots/multiplayer-participant.png) |
 
 ## Example workouts to paste
 
 **For time**
+
 ```
 5 rounds for time:
 10 push-ups
@@ -45,6 +46,7 @@ Leader is authoritative for the run state; participants follow along in sync and
 ```
 
 **AMRAP 12**
+
 ```
 AMRAP 12 minutes:
 6 pull-ups
@@ -53,6 +55,7 @@ AMRAP 12 minutes:
 ```
 
 **EMOM**
+
 ```
 Every 2 minutes for 10 minutes:
 12 kettlebell swings
@@ -60,6 +63,7 @@ Every 2 minutes for 10 minutes:
 ```
 
 **Intervals**
+
 ```
 4 rounds
 1 min dumbbell power clean
@@ -69,6 +73,7 @@ Rest 2 minutes between rounds
 ```
 
 **From evals (sets-amrap-between-sets-text)**
+
 ```
 3 Sets
 Each Set is a 3 Min AMRAP

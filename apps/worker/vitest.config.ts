@@ -23,7 +23,7 @@ export default defineWorkersConfig(async () => {
 							GOOGLE_GENERATIVE_AI_API_KEY: googleApiKey,
 							RUN_LIVE_AI_TESTS: runLiveAiTests,
 							STUB_PARSE: '0',
-						STUB_OG: '1',
+							STUB_OG: '1',
 						},
 						r2Buckets: {
 							OG_IMAGES: ogImagesBucket,

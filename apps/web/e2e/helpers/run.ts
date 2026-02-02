@@ -9,11 +9,14 @@ export async function fastStartRun(page: Page, opts?: FastStartOptions) {
   const runId = page.url().match(/\/r\/([^?]+)/)?.[1];
   expect(runId).toBeTruthy();
 
-  const snapshot = await page.evaluate(async ({ runId: id }) => {
-    const res = await fetch(`/api/runs/${id}`, { credentials: 'include' });
-    const json = await res.json();
-    return json as { serverNowMonoMs?: number };
-  }, { runId });
+  const snapshot = await page.evaluate(
+    async ({ runId: id }) => {
+      const res = await fetch(`/api/runs/${id}`, { credentials: 'include' });
+      const json = await res.json();
+      return json as { serverNowMonoMs?: number };
+    },
+    { runId },
+  );
 
   const serverNowMonoMs = snapshot.serverNowMonoMs ?? 0;
   expect(serverNowMonoMs).toBeGreaterThan(0);
@@ -34,4 +37,3 @@ export async function fastStartRun(page: Page, opts?: FastStartOptions) {
   // Once running, leader controls appear.
   await expect(page.locator('#pause')).toBeEnabled({ timeout: 15000 });
 }
-

@@ -62,9 +62,7 @@ describe('meta tag injection', () => {
 		const ogTitle = getMetaContent(html, 'property', 'og:title');
 		const ogImage = getMetaContent(html, 'property', 'og:image');
 		expect(ogTitle).toBe('Fran - WOD Brains');
-		expect(ogImage).toMatch(
-			new RegExp(`https://wodbrains\\.com/og/definitions/wb_og_def_v1_${def.definitionId}_[0-9]+\\.png`),
-		);
+		expect(ogImage).toMatch(new RegExp(`https://wodbrains\\.com/og/definitions/wb_og_def_v1_${def.definitionId}_[0-9]+\\.png`));
 	});
 
 	it('escapes special characters in workout titles', async () => {
@@ -88,9 +86,7 @@ describe('meta tag injection', () => {
 		const ogTitle = getMetaContent(html, 'property', 'og:title');
 		const ogImage = getMetaContent(html, 'property', 'og:image');
 		expect(ogTitle).toBe('Grace - WOD Brains');
-		expect(ogImage).toMatch(
-			new RegExp(`https://wodbrains\\.com/og/definitions/wb_og_def_v1_${def.definitionId}_[0-9]+\\.png`),
-		);
+		expect(ogImage).toMatch(new RegExp(`https://wodbrains\\.com/og/definitions/wb_og_def_v1_${def.definitionId}_[0-9]+\\.png`));
 	});
 
 	it('serves a generated og:image for definitions', async () => {

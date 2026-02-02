@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { SELF, env } from 'cloudflare:test';
 import {
-  TimerPlanSchema,
-  WorkoutDefinitionSchema,
-  type TimerPlan,
-  type TimerPlanSegment,
-  type TimerPlanSequence,
-  type WorkoutBlock,
+	TimerPlanSchema,
+	WorkoutDefinitionSchema,
+	type TimerPlan,
+	type TimerPlanSegment,
+	type TimerPlanSequence,
+	type WorkoutBlock,
 } from '@wodbrains/core';
 import manifestJson from './evals/manifest.json';
 
@@ -24,17 +24,17 @@ type EvalCase = {
 		topLevelRepeatLabel?: string;
 		countdownTimersHaveNoChildren?: boolean;
 		amrapCountdownHasStepsIncluding?: string[];
-    timerPlanRoot?: Array<{
-      type: TimerPlanSegment['type'];
-      labelIncludes?: string;
-      rounds?: number;
-      mode?: 'countup' | 'countdown';
-    }>;
-    timerPlanWarmupCountdownsMs?: number[];
-    timerPlanWarmupRepeat?: {
-      rounds?: number;
-      countdownDurationsMs?: number[];
-    };
+		timerPlanRoot?: Array<{
+			type: TimerPlanSegment['type'];
+			labelIncludes?: string;
+			rounds?: number;
+			mode?: 'countup' | 'countdown';
+		}>;
+		timerPlanWarmupCountdownsMs?: number[];
+		timerPlanWarmupRepeat?: {
+			rounds?: number;
+			countdownDurationsMs?: number[];
+		};
 	};
 };
 
@@ -79,33 +79,29 @@ const extractCountdownDurations = (blocks: WorkoutBlock[]): number[] => {
 	return out;
 };
 
-const extractCountdownDurationsFromPlan = (
-  segments: TimerPlanSegment[],
-  opts?: { deep?: boolean },
-): number[] => {
-  const out: number[] = [];
-  const deep = opts?.deep ?? true;
-  const walk = (items: TimerPlanSegment[]) => {
-    for (const seg of items) {
-      if (seg.type === 'timer' && seg.mode === 'countdown' && typeof seg.durationMs === 'number') {
-        out.push(seg.durationMs);
-      }
-      if (deep && seg.type === 'sequence') walk(seg.segments);
-      if (deep && seg.type === 'repeat') walk(seg.segments);
-    }
-  };
-  walk(segments);
-  return out;
+const extractCountdownDurationsFromPlan = (segments: TimerPlanSegment[], opts?: { deep?: boolean }): number[] => {
+	const out: number[] = [];
+	const deep = opts?.deep ?? true;
+	const walk = (items: TimerPlanSegment[]) => {
+		for (const seg of items) {
+			if (seg.type === 'timer' && seg.mode === 'countdown' && typeof seg.durationMs === 'number') {
+				out.push(seg.durationMs);
+			}
+			if (deep && seg.type === 'sequence') walk(seg.segments);
+			if (deep && seg.type === 'repeat') walk(seg.segments);
+		}
+	};
+	walk(segments);
+	return out;
 };
 
 const findRootSequenceByLabel = (plan: TimerPlan, needle: string): TimerPlanSequence | null => {
-  const lower = needle.toLowerCase();
-  return (
-    plan.root.segments.find(
-      (seg): seg is TimerPlanSequence =>
-        seg.type === 'sequence' && (seg.label ?? '').toLowerCase().includes(lower),
-    ) ?? null
-  );
+	const lower = needle.toLowerCase();
+	return (
+		plan.root.segments.find(
+			(seg): seg is TimerPlanSequence => seg.type === 'sequence' && (seg.label ?? '').toLowerCase().includes(lower),
+		) ?? null
+	);
 };
 
 const getTopLevelRepeat = (blocks: WorkoutBlock[]): WorkoutBlock | null => {
@@ -270,13 +266,13 @@ describeLive('Parse evals (live)', () => {
 					const actual = rootSegments[index];
 					expect(actual?.type).toBe(expected.type);
 					if (expected.labelIncludes) {
-						expect(((actual as Extract<TimerPlanSegment, { type: 'sequence' | 'repeat' }>)?.label ?? '').toLowerCase()).toContain(expected.labelIncludes.toLowerCase());
+						expect(((actual as Extract<TimerPlanSegment, { type: 'sequence' | 'repeat' }>)?.label ?? '').toLowerCase()).toContain(
+							expected.labelIncludes.toLowerCase(),
+						);
 					}
 					if (typeof expected.rounds === 'number') {
 						expect(actual?.type).toBe('repeat');
-						expect((actual as Extract<TimerPlanSegment, { type: 'repeat' }>).rounds).toBe(
-							expected.rounds,
-						);
+						expect((actual as Extract<TimerPlanSegment, { type: 'repeat' }>).rounds).toBe(expected.rounds);
 					}
 					if (expected.mode) {
 						expect(actual?.type).toBe('timer');
@@ -295,9 +291,7 @@ describeLive('Parse evals (live)', () => {
 			if (expectations.timerPlanWarmupRepeat) {
 				const warmup = findRootSequenceByLabel(timerPlan, 'Warm-up');
 				expect(warmup).not.toBeNull();
-				const repeat = warmup?.segments.find(
-					(seg): seg is Extract<TimerPlanSegment, { type: 'repeat' }> => seg.type === 'repeat',
-				);
+				const repeat = warmup?.segments.find((seg): seg is Extract<TimerPlanSegment, { type: 'repeat' }> => seg.type === 'repeat');
 				expect(repeat).not.toBeNull();
 				if (typeof expectations.timerPlanWarmupRepeat.rounds === 'number') {
 					expect(repeat?.rounds).toBe(expectations.timerPlanWarmupRepeat.rounds);

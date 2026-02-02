@@ -695,10 +695,7 @@ export async function parseWorkout(
 		}
 
 		if (b.type === 'repeat') {
-			const rounds =
-				typeof b.rounds === 'number' && Number.isFinite(b.rounds) && b.rounds > 0
-					? Math.trunc(b.rounds)
-					: undefined;
+			const rounds = typeof b.rounds === 'number' && Number.isFinite(b.rounds) && b.rounds > 0 ? Math.trunc(b.rounds) : undefined;
 			return {
 				type: 'repeat',
 				blockId,

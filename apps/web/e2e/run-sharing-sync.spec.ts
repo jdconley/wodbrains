@@ -87,16 +87,23 @@ test('leader and participant stay in sync', async ({ browser }) => {
   await expect(participant.locator('#pause')).toHaveCount(0);
 
   await leader.waitForTimeout(500);
-  const [leaderMs, participantMs] = await Promise.all([readTimerMs(leader), readTimerMs(participant)]);
+  const [leaderMs, participantMs] = await Promise.all([
+    readTimerMs(leader),
+    readTimerMs(participant),
+  ]);
   expect(Math.abs(leaderMs - participantMs)).toBeLessThan(1500);
 
   // Leader pauses -> participant should see "Paused by the Leader"
   await leader.locator('#pause').click();
-  await expect(participant.locator('[data-testid="leader-note"]')).toHaveText('Paused by the Leader');
+  await expect(participant.locator('[data-testid="leader-note"]')).toHaveText(
+    'Paused by the Leader',
+  );
 
   // Leader ends -> participant should see "Ended by the Leader"
   await leader.locator('#pause').click(); // resume
   await leader.locator('#pause').click(); // pause again to show stop
   await leader.locator('[data-action="stop"]').click();
-  await expect(participant.locator('[data-testid="leader-note"]')).toHaveText('Ended by the Leader');
+  await expect(participant.locator('[data-testid="leader-note"]')).toHaveText(
+    'Ended by the Leader',
+  );
 });

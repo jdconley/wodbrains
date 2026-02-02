@@ -42,4 +42,3 @@ test('run sharing: real 10s countdown (production behavior)', async ({ browser }
   expect(dt).toBeGreaterThan(9000);
   expect(dt).toBeLessThan(16000);
 });
-

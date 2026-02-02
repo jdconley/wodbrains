@@ -6,6 +6,7 @@ description: Generate and update the WOD Brains OG image PNG/JPG using the masco
 # WOD Brains OG Image Workflow
 
 Use this workflow to regenerate the Open Graph image assets:
+
 - `apps/web/public/og-image-original.png` (high-quality PNG)
 - `apps/web/public/og-image.jpg` (compressed JPG)
 
@@ -84,16 +85,19 @@ await browser.close();
 ## Commands
 
 Generate PNG:
+
 ```bash
 pnpm -w exec node og-image-generate.mjs
 ```
 
 Convert to JPG:
+
 ```bash
 sips -s format jpeg -s formatOptions 85 "apps/web/public/og-image-original.png" --out "apps/web/public/og-image.jpg"
 ```
 
 Verify dimensions:
+
 ```bash
 sips -g pixelWidth -g pixelHeight "apps/web/public/og-image-original.png"
 ```

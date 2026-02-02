@@ -336,10 +336,11 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
     await flushAutosave({ navigateOnClone: false });
     const plan = compileWorkoutDefinition(workoutDefinition);
     const description = buildTimerDescription(workoutDefinition, plan);
-    const url = new URL(`/w/${encodeURIComponent(activeDefinitionId)}`, window.location.origin).toString();
-    const title = description.title?.trim()
-      ? `WOD Brains · ${description.title}`
-      : 'WOD Brains';
+    const url = new URL(
+      `/w/${encodeURIComponent(activeDefinitionId)}`,
+      window.location.origin,
+    ).toString();
+    const title = description.title?.trim() ? `WOD Brains · ${description.title}` : 'WOD Brains';
     const text = 'Workout at the same time with friends. Start this workout on WOD Brains.';
     try {
       if (navigator.share) {
@@ -358,7 +359,9 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
     }
   };
 
-  const saveDefinition = async (opts: { navigateOnClone?: boolean; showSuccessToast?: boolean } = {}) => {
+  const saveDefinition = async (
+    opts: { navigateOnClone?: boolean; showSuccessToast?: boolean } = {},
+  ) => {
     if (!workoutDefinition) return null;
     try {
       await ensureAnonymousSession();

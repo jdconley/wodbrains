@@ -38,4 +38,3 @@ export function showToast(message: string, tone: ToastTone = 'muted', opts: Toas
   };
   window.setTimeout(remove, timeoutMs);
 }
-

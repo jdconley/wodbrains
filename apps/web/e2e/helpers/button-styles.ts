@@ -16,4 +16,3 @@ export async function expectPillLabelButtonFlatOnHover(locator: Locator) {
 export async function expectSquareIconButton(locator: Locator) {
   await expect(locator).toHaveCSS('border-radius', /8px/);
 }
-

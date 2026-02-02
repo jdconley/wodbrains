@@ -40,4 +40,3 @@ test('timer-edit removes window resize listeners on navigation', async ({ page }
   const after = await page.evaluate(() => (window as any).__resizeListenerRemoves as number);
   expect(after).toBeGreaterThan(before);
 });
-

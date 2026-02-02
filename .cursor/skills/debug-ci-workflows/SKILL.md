@@ -51,6 +51,7 @@ docker run --rm -v "$PWD":/repo -w /repo mcr.microsoft.com/playwright:v1.58.0-ja
 ```
 
 Gotchas:
+
 - If pnpm errors with `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`, set `CI=true` (as above).
 - Avoid copying `node_modules` between platforms; native deps like `workerd` can break (install inside the container).
 
@@ -78,6 +79,7 @@ When CI fails with `Timed out waiting ... from config.webServer`:
    - Serving E2E from the worker origin avoids separate Vite dev-server flakiness in CI.
 
 Local tip:
+
 - Don’t run two Playwright suites simultaneously; they will collide on fixed ports.
 - To avoid collisions, override ports:
 
@@ -101,6 +103,7 @@ Add a workflow step after dependencies install:
 ### Keep E2E stable in CI
 
 If a Vite dev server is unreliable in CI:
+
 - Run E2E against the **worker-served** built app in CI (`baseURL` pointing at the worker origin), while keeping local dev/E2E using Vite for a better dev experience.
 
 ## Verify the Fix (don’t stop early)
@@ -115,4 +118,3 @@ gh run watch <run_id> --exit-status
 ```
 
 4. If the fix required temporary debug logging, remove it and re-verify with another green run.
-

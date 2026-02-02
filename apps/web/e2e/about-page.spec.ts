@@ -16,8 +16,12 @@ test.describe('About page', () => {
     const content = page.locator('.PageContent');
     const contentBox = await content.boundingBox();
     expect(contentBox).not.toBeNull();
-    const padLeft = await content.evaluate((el) => Number.parseFloat(getComputedStyle(el).paddingLeft));
-    const padRight = await content.evaluate((el) => Number.parseFloat(getComputedStyle(el).paddingRight));
+    const padLeft = await content.evaluate((el) =>
+      Number.parseFloat(getComputedStyle(el).paddingLeft),
+    );
+    const padRight = await content.evaluate((el) =>
+      Number.parseFloat(getComputedStyle(el).paddingRight),
+    );
     const insetLeftX = (contentBox?.x ?? 0) + padLeft;
     const insetRightX = (contentBox?.x ?? 0) + (contentBox?.width ?? 0) - padRight;
 

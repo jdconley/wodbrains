@@ -19,7 +19,9 @@ test.describe('workout builder', () => {
     const content = page.locator('.PageContent');
     const contentBox = await content.boundingBox();
     expect(contentBox).not.toBeNull();
-    const contentPadLeft = await content.evaluate((el) => Number.parseFloat(getComputedStyle(el).paddingLeft));
+    const contentPadLeft = await content.evaluate((el) =>
+      Number.parseFloat(getComputedStyle(el).paddingLeft),
+    );
     const contentPadRight = await content.evaluate((el) =>
       Number.parseFloat(getComputedStyle(el).paddingRight),
     );
@@ -86,18 +88,12 @@ test.describe('workout builder', () => {
     await expect(noteInput).toHaveValue(multilineNote);
     const noteHandle = await noteInput.elementHandle();
     expect(noteHandle).not.toBeNull();
-    await page.waitForFunction(
-      (el) => el.scrollHeight <= el.clientHeight + 2,
-      noteHandle,
-    );
+    await page.waitForFunction((el) => el.scrollHeight <= el.clientHeight + 2, noteHandle);
     const expandedBox = await noteInput.boundingBox();
     expect(expandedBox?.height ?? 0).toBeGreaterThan((initialBox?.height ?? 0) + 6);
 
     await page.setViewportSize({ width: 360, height: 900 });
-    await page.waitForFunction(
-      (el) => el.scrollHeight <= el.clientHeight + 2,
-      noteHandle,
-    );
+    await page.waitForFunction((el) => el.scrollHeight <= el.clientHeight + 2, noteHandle);
 
     await page.locator('#startCountdown').click();
     await expect(page).toHaveURL(/\/r\/[^?]+/);
