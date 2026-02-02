@@ -41,17 +41,18 @@ export default defineConfig({
   webServer: [
     {
       command:
-        `echo "[playwright] starting worker webServer (migrate + wrangler dev) on ${workerOrigin}" && ` +
+        `echo "[playwright] starting worker webServer (migrate + wrangler dev) on ${workerOrigin}" >&2 && ` +
         `pnpm --filter worker db:migrate:local && ` +
-        `echo "[playwright] worker DB migrated; starting wrangler dev..." && ` +
+        `echo "[playwright] worker DB migrated; starting wrangler dev..." >&2 && ` +
         `pnpm --filter worker exec wrangler dev --local --ip ${workerHost} --port ${workerPort} --var STUB_PARSE:1`,
       url: workerHealthUrl,
       reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
+      // Make it obvious in CI logs which server is hanging.
+      timeout: 45_000,
     },
     {
       command:
-        `echo "[playwright] starting web webServer (vite) on ${webOrigin}" && ` +
+        `echo "[playwright] starting web webServer (vite) on ${webOrigin}" >&2 && ` +
         `pnpm --filter web dev -- --host ${webListenHost} --port ${webPort} --strictPort`,
       url: webOrigin,
       reuseExistingServer: !process.env.CI,
