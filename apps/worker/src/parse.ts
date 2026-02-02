@@ -25,15 +25,18 @@ const LLMWorkoutScoringSchema = z.object({
 	startWith: z.enum(['work', 'rest']).optional(),
 });
 
-const LLMWorkoutBlockSchema = z.object({
-	// Keep this flat + simple to make structured outputs reliable.
-	type: z.enum(['step', 'timer', 'note']).catch('step'),
-	label: z.string().optional(),
-	text: z.string().optional(),
-	// Allow non-canonical mode strings (e.g. "emom") and normalize later.
-	mode: z.string().optional(),
-	durationMs: z.number().int().nonnegative().optional(),
-});
+const LLMWorkoutBlockSchema: z.ZodType<any> = z.lazy(() =>
+	z.object({
+		type: z.enum(['sequence', 'repeat', 'timer', 'step', 'note']).catch('step'),
+		label: z.string().optional(),
+		text: z.string().optional(),
+		// Allow non-canonical mode strings (e.g. "emom") and normalize later.
+		mode: z.string().optional(),
+		durationMs: z.number().int().nonnegative().optional(),
+		rounds: z.number().int().positive().optional(),
+		blocks: z.array(LLMWorkoutBlockSchema).optional(),
+	}),
+);
 
 const LLMWorkoutDefinitionSchema = z.object({
 	title: z.string().optional(),
@@ -243,8 +246,10 @@ export async function parseWorkout(
 		'Return a JSON object that matches the provided schema.',
 		'If anything is ambiguous or missing, omit the field and add a short assumption.',
 		'Exception: always include workoutDefinition.title. If there is no explicit title, create a short, playful title using analogy or metaphor (PG, no emojis).',
-		'The workoutDefinition.blocks field is a flat ordered list of blocks.',
-		"Allowed block types: 'step', 'timer', 'note'.",
+		'The workoutDefinition.blocks field is an ordered list of blocks (can be nested).',
+		"Allowed block types: 'sequence', 'repeat', 'timer', 'step', 'note'.",
+		"Use 'sequence' blocks to group named sections (Warm-up, Main Set, Finish). Put a section's steps inside its blocks array.",
+		"Use 'repeat' blocks to represent templates that repeat N times. Put the per-round items in repeat.blocks and set rounds = N.",
 		"Prefer 'timer' blocks for timeboxed work/rest. Use 'step' blocks for non-timed movement instructions or rep schemes not already captured by a timer.",
 		"For 'timer' blocks, include durationMs (ms) when known and set mode to 'countdown' unless it is open-ended. Do not use the generic label 'Timer' when a specific label is available.",
 		[
@@ -254,6 +259,7 @@ export async function parseWorkout(
 			'- If the workout says "Sets", set workoutDefinition.scoring.label = "Set" (default label is "Round").',
 			'- Do NOT output the rounds header line (e.g. "4 Rounds") as a step or note.',
 			'- Put the per-round items in workoutDefinition.blocks (they will be wrapped into a repeat by downstream logic).',
+			'- If the workout is sectioned (e.g. Warm-up/Main Set/Finish), prefer explicit repeat blocks inside the section and leave workoutDefinition.scoring unset.',
 		].join('\n'),
 		[
 			'Timed movement lines:',
@@ -308,6 +314,10 @@ export async function parseWorkout(
 		].join('\n'),
 		'If a workout includes multiple timeboxed sections (e.g. 6 min AMRAP, rest 3 min, then another 6 min AMRAP), leave scoring unset and use timers instead.',
 		'Treat workouts as a timeline of segments: work segments and rest segments, each represented by a timer block followed by its step/note lines.',
+		'If a section heading includes a total duration (e.g. "Warm-up — 15 minutes"), ensure the timers inside that section add up to the total.',
+		'If you must infer leftover time to meet a section total, include a short assumption explaining the inference.',
+		'If a workout includes a pause/break between sections, output a timer block labeled "Break" with mode "countup" and no durationMs.',
+		'For phrasing like "At minute 10–12", interpret it as a specific sub-interval within the current section and model it with explicit timers.',
 		'Marker times are not timers. Phrases like "At 6:00", "After 6 minutes", or "When the clock hits ..." indicate a transition and do not create a timer on their own.',
 		'If a transition line includes both a marker time and a segment duration (e.g. "At 6:00, Rest 3 Minutes, Then:"), create only the explicit segment timer (Rest 3 Minutes).',
 		'If a line contains multiple time values, only use the time tied to a segment keyword (Rest/AMRAP/EMOM/etc.). Ignore the marker time.',
@@ -611,69 +621,96 @@ export async function parseWorkout(
 	};
 	const scoring = normalizeScoring(parsed.scoring);
 
-	const blocks: WorkoutBlock[] = (parsed.blocks ?? []).map((b) => {
+	const parseDurationMs = (value: string): number | null => {
+		const clock = value.match(/\b(\d{1,2}):(\d{2})\b/);
+		if (clock) {
+			const mins = Number.parseInt(clock[1] ?? '', 10);
+			const secs = Number.parseInt(clock[2] ?? '', 10);
+			if (Number.isFinite(mins) && Number.isFinite(secs) && mins >= 0 && secs >= 0 && secs < 60) {
+				return (mins * 60 + secs) * 1000;
+			}
+		}
+		const match = value.match(/\b(\d{1,3})\s*(sec|secs|second|seconds|min|mins|minute|minutes)\b/i);
+		if (!match) return null;
+		const n = Number.parseInt(match[1] ?? '', 10);
+		if (!Number.isFinite(n) || n <= 0) return null;
+		const unit = (match[2] ?? '').toLowerCase();
+		if (unit.startsWith('sec')) return n * 1000;
+		return n * 60 * 1000;
+	};
+
+	const inferTimer = (raw: string): { label: string; durationMs: number } | null => {
+		const s = raw.trim();
+		if (!s) return null;
+
+		const rest = s.match(/^rest\b[\s:,-]*(.+)$/i);
+		if (rest) {
+			const durationMs = parseDurationMs(rest[1] ?? '');
+			if (durationMs !== null) return { label: 'Rest', durationMs };
+		}
+
+		const emom = s.match(/\bemom\b/i);
+		if (emom) {
+			const durationMs = parseDurationMs(s);
+			if (durationMs !== null) return { label: 'EMOM', durationMs };
+		}
+
+		const suffix = s.match(/^(.+?)\s*[:-]\s*(.+)$/);
+		if (suffix) {
+			const durationMs = parseDurationMs(suffix[2] ?? '');
+			if (durationMs !== null) return { label: (suffix[1] ?? '').trim() || s, durationMs };
+		}
+
+		const prefix = s.match(/^(.+?)\s+(.*)$/);
+		if (prefix) {
+			const durationMs = parseDurationMs(prefix[1] ?? '');
+			if (durationMs !== null) return { label: (prefix[2] ?? '').trim() || s, durationMs };
+		}
+
+		const durationMs = parseDurationMs(s);
+		if (durationMs !== null) return { label: s, durationMs };
+		return null;
+	};
+
+	const toWorkoutBlock = (b: z.infer<typeof LLMWorkoutBlockSchema>): WorkoutBlock => {
 		const blockId = uuidv7();
+		const childBlocks = Array.isArray(b.blocks) ? b.blocks.map(toWorkoutBlock) : undefined;
+		const trimmedLabel = b.label?.trim();
+
 		if (b.type === 'note') {
 			return {
 				type: 'note',
 				blockId,
-				text: b.text?.trim() || b.label?.trim() || '',
+				text: b.text?.trim() || trimmedLabel || '',
 			};
 		}
+
+		if (b.type === 'sequence') {
+			return {
+				type: 'sequence',
+				blockId,
+				...(trimmedLabel ? { label: trimmedLabel } : {}),
+				blocks: childBlocks ?? [],
+			};
+		}
+
+		if (b.type === 'repeat') {
+			const rounds =
+				typeof b.rounds === 'number' && Number.isFinite(b.rounds) && b.rounds > 0
+					? Math.trunc(b.rounds)
+					: undefined;
+			return {
+				type: 'repeat',
+				blockId,
+				...(trimmedLabel ? { label: trimmedLabel } : {}),
+				...(rounds ? { rounds } : {}),
+				blocks: childBlocks ?? [],
+			};
+		}
+
 		if (b.type === 'timer') {
-			const parseDurationMs = (value: string): number | null => {
-				const clock = value.match(/\b(\d{1,2}):(\d{2})\b/);
-				if (clock) {
-					const mins = Number.parseInt(clock[1] ?? '', 10);
-					const secs = Number.parseInt(clock[2] ?? '', 10);
-					if (Number.isFinite(mins) && Number.isFinite(secs) && mins >= 0 && secs >= 0 && secs < 60) {
-						return (mins * 60 + secs) * 1000;
-					}
-				}
-				const match = value.match(/\b(\d{1,3})\s*(sec|secs|second|seconds|min|mins|minute|minutes)\b/i);
-				if (!match) return null;
-				const n = Number.parseInt(match[1] ?? '', 10);
-				if (!Number.isFinite(n) || n <= 0) return null;
-				const unit = (match[2] ?? '').toLowerCase();
-				if (unit.startsWith('sec')) return n * 1000;
-				return n * 60 * 1000;
-			};
-
-			const inferTimer = (raw: string): { label: string; durationMs: number } | null => {
-				const s = raw.trim();
-				if (!s) return null;
-
-				const rest = s.match(/^rest\b[\s:,-]*(.+)$/i);
-				if (rest) {
-					const durationMs = parseDurationMs(rest[1] ?? '');
-					if (durationMs !== null) return { label: 'Rest', durationMs };
-				}
-
-				const emom = s.match(/\bemom\b/i);
-				if (emom) {
-					const durationMs = parseDurationMs(s);
-					if (durationMs !== null) return { label: 'EMOM', durationMs };
-				}
-
-				const suffix = s.match(/^(.+?)\s*[:-]\s*(.+)$/);
-				if (suffix) {
-					const durationMs = parseDurationMs(suffix[2] ?? '');
-					if (durationMs !== null) return { label: (suffix[1] ?? '').trim() || s, durationMs };
-				}
-
-				const prefix = s.match(/^(.+?)\s+(.*)$/);
-				if (prefix) {
-					const durationMs = parseDurationMs(prefix[1] ?? '');
-					if (durationMs !== null) return { label: (prefix[2] ?? '').trim() || s, durationMs };
-				}
-
-				const durationMs = parseDurationMs(s);
-				if (durationMs !== null) return { label: s, durationMs };
-				return null;
-			};
-
 			let durationMs = typeof b.durationMs === 'number' ? b.durationMs : undefined;
-			let label = b.label?.trim() || b.text?.trim() || 'Timer';
+			let label = trimmedLabel || b.text?.trim() || 'Timer';
 			const normalizedMode = b.mode === 'countdown' || b.mode === 'countup' ? b.mode : undefined;
 			let mode: WorkoutBlock['mode'] = normalizedMode ?? (durationMs !== undefined ? 'countdown' : 'countup');
 
@@ -692,14 +729,28 @@ export async function parseWorkout(
 				label,
 				mode,
 				...(durationMs === undefined ? {} : { durationMs }),
+				...(childBlocks?.length ? { blocks: childBlocks } : {}),
 			};
 		}
+
 		return {
 			type: 'step',
 			blockId,
-			label: b.label?.trim() || b.text?.trim() || 'Step',
+			label: trimmedLabel || b.text?.trim() || 'Step',
 		};
-	});
+	};
+
+	const blocks: WorkoutBlock[] = (parsed.blocks ?? []).map(toWorkoutBlock);
+
+	const normalizeBlockTree = (items: WorkoutBlock[]): WorkoutBlock[] => {
+		const normalized = nestCountdownGroups(coerceTimerHeaders(items));
+		return normalized.map((block) => {
+			if (block.blocks?.length) {
+				return { ...block, blocks: normalizeBlockTree(block.blocks) };
+			}
+			return block;
+		});
+	};
 
 	const filteredBlocks = blocks.filter((b) => {
 		if (b.type !== 'step') return true;
@@ -710,7 +761,7 @@ export async function parseWorkout(
 		return true;
 	});
 
-	const normalizedBlocks = nestCountdownGroups(coerceTimerHeaders(filteredBlocks));
+	const normalizedBlocks = normalizeBlockTree(filteredBlocks);
 	let blocksWithScoring = applyScoringIntent(scoring, normalizedBlocks);
 	if (!blocksWithScoring.length) {
 		blocksWithScoring = [{ type: 'step', blockId: uuidv7(), label: 'Unparsed workout (empty result)' }];

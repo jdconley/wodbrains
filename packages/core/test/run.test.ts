@@ -126,6 +126,22 @@ describe('deriveRunState', () => {
     expect(s.segment?.blockId).toBe('s2');
   });
 
+  it('notes do not block manual segments', () => {
+    const plan = basePlan([
+      { type: 'note', blockId: 'n1', text: 'Stay tall.' },
+      { type: 'step', blockId: 's1', label: 'Push-ups' },
+      { type: 'note', blockId: 'n2', text: 'Calm face.' },
+      { type: 'step', blockId: 's2', label: 'Sit-ups' },
+    ]);
+    const events: RunEvent[] = [{ id: 'start', type: 'start', atMs: 0 }];
+
+    const s1 = deriveRunState(plan, events, 0);
+    expect(s1.segment?.blockId).toBe('s1');
+
+    const s2 = deriveRunState(plan, [...events, { id: 'a1', type: 'advance', atMs: 1000 }], 1000);
+    expect(s2.segment?.blockId).toBe('s2');
+  });
+
   it('repeat segments produce nested counters', () => {
     const plan = basePlan([
       {

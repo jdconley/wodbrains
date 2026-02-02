@@ -37,5 +37,20 @@
 			"countdownDurationsMs": [180000, 60000],
 			"amrapCountdownHasStepsIncluding": ["Hang Power Clean", "Air Squat", "Burpee"]
 		}
+	},
+	{
+		"id": "running-break-image",
+		"kind": "image",
+		"path": "test-assets/evals/IMG_5694.jpeg",
+		"expect": {
+			"timerPlanRoot": [
+				{ "type": "sequence", "labelIncludes": "Warm-up" },
+				{ "type": "timer", "labelIncludes": "Break", "mode": "countup" },
+				{ "type": "repeat", "labelIncludes": "Main Set", "rounds": 4 },
+				{ "type": "repeat", "labelIncludes": "Finish", "rounds": 5 }
+			],
+			"timerPlanWarmupCountdownsMs": [600000, 180000],
+			"timerPlanWarmupRepeat": { "rounds": 2, "countdownDurationsMs": [20000, 40000] }
+		}
 	}
 ]

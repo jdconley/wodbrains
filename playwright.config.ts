@@ -50,7 +50,9 @@ export default defineConfig({
         },
         {
           command:
-            `pnpm --filter web dev -- --host ${webListenHost} --port ${webPort} --strictPort`,
+            // NOTE: use `pnpm exec vite` instead of `pnpm run dev -- ...` so Vite receives
+            // flags directly (some runners treat `--` as an arg terminator).
+            `pnpm --filter web exec vite --host ${webListenHost} --port ${webPort} --strictPort`,
           url: webOrigin,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,

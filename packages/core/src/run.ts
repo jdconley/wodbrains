@@ -338,6 +338,7 @@ export function deriveRunState(
   };
   const baseSegments = amrapOnly && amrapCountdownLeaf ? [amrapCountdownLeaf] : flatSegments;
   const trimmedSegments = trimTrailingRepeatRest(trimTrailingIntervalRest(baseSegments));
+  const runnableSegments = trimmedSegments.filter((seg) => seg.type !== 'note');
   const planHasAnyTimer = flatSegments.some((s) => s.type === 'timer');
   const hasCountdownTimer = flatSegments.some(
     (s) => s.type === 'timer' && s.mode === 'countdown' && (s.durationMs ?? 0) > 0,
@@ -349,8 +350,8 @@ export function deriveRunState(
   let advanceIndex = 0;
   let skipGroupId: string | undefined = undefined; // Track which group to skip past
 
-  for (let segIdx = 0; segIdx < trimmedSegments.length; segIdx++) {
-    const seg = trimmedSegments[segIdx];
+  for (let segIdx = 0; segIdx < runnableSegments.length; segIdx++) {
+    const seg = runnableSegments[segIdx];
     if (!seg) continue;
     const nextAdvance = advanceTimes[advanceIndex];
 

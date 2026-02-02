@@ -107,6 +107,16 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
         <div class="CountdownNumber" id="countdownNumber"></div>
       </div>
 
+      <!-- Break overlay (manual advance) -->
+      <div class="RunBreakOverlay hidden" id="breakOverlay" role="dialog" aria-modal="true" aria-labelledby="breakTitle" aria-describedby="breakDesc">
+        <div class="RunBreakCard">
+          <div class="RunBreakTitle" id="breakTitle">Break</div>
+          <div class="RunBreakDesc" id="breakDesc">Take your time. Tap Continue when ready.</div>
+          <button class="PrimaryBtn RunBreakBtn" id="breakContinue" type="button">Continue</button>
+          <div class="RunBreakLeaderNote hidden" id="breakLeaderNote">Waiting for the Leader</div>
+        </div>
+      </div>
+
       <!-- Tap hint (fades in after timer starts) -->
       <div class="RunTapHint" id="tapHint" aria-hidden="true">Tap anywhere to count</div>
 
@@ -187,6 +197,10 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   const startOverlayEl = root.querySelector<HTMLDivElement>('#startOverlay')!;
   const countdownOverlayEl = root.querySelector<HTMLDivElement>('#countdownOverlay')!;
   const countdownNumberEl = root.querySelector<HTMLDivElement>('#countdownNumber')!;
+  const breakOverlayEl = root.querySelector<HTMLDivElement>('#breakOverlay')!;
+  const breakTitleEl = root.querySelector<HTMLDivElement>('#breakTitle')!;
+  const breakContinueEl = root.querySelector<HTMLButtonElement>('#breakContinue')!;
+  const breakLeaderNoteEl = root.querySelector<HTMLDivElement>('#breakLeaderNote')!;
   const tapHintEl = root.querySelector<HTMLDivElement>('#tapHint')!;
   const infoOverlayEl = root.querySelector<HTMLDivElement>('#infoOverlay')!;
   const infoTitleEl = root.querySelector<HTMLDivElement>('#infoTitle')!;
@@ -388,6 +402,8 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   let lastStatus = simDerived.status;
   let lastCornerRenderKey = '';
   let lastCountdownLabel = '';
+  let lastBreakRenderKey = '';
+  let breakWasVisible = false;
 
   type LocalSplit = { id: string; atMs: number; elapsedMs: number; label?: string };
   const loadLocalSplits = (): LocalSplit[] => {
@@ -552,6 +568,11 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   startShareBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     void shareRunLink();
+  });
+
+  breakContinueEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    void advanceSegment();
   });
 
   // Update UI based on current status (idle/running/paused/finished)
@@ -1142,6 +1163,27 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       }
 
       updateCountdownOverlay();
+      const breakLabel = segment?.label?.trim() || 'Break';
+      const isBreak =
+        segment?.type === 'timer' &&
+        segment.mode === 'countup' &&
+        breakLabel.toLowerCase().includes('break');
+      const canAdvance = canControl && simDerived.status === 'running';
+      const breakKey = `${isBreak ? 'break' : 'none'}|${breakLabel}|${canAdvance ? 'on' : 'off'}|${simDerived.status}`;
+      if (breakKey !== lastBreakRenderKey) {
+        lastBreakRenderKey = breakKey;
+        breakOverlayEl.classList.toggle('hidden', !isBreak);
+        breakOverlayEl.setAttribute('aria-hidden', isBreak ? 'false' : 'true');
+        if (isBreak) {
+          breakTitleEl.textContent = breakLabel || 'Break';
+          breakContinueEl.disabled = !canAdvance;
+          breakLeaderNoteEl.classList.toggle('hidden', canControl);
+          if (!breakWasVisible && canAdvance) {
+            breakContinueEl.focus();
+          }
+        }
+        breakWasVisible = isBreak;
+      }
       updateCornerInfo();
       updateUIForStatus();
     };
@@ -1243,6 +1285,17 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       savePendingEvents(pending);
       setStatus('Offline: action queued', 'muted');
     }
+  };
+
+  const advanceSegment = async () => {
+    if (!timerPlan) return;
+    if (!canControl) {
+      setStatus('Participant mode (view-only)', 'muted');
+      return;
+    }
+    const nowMs = getEventNowMs();
+    haptics.medium();
+    await sendEvent({ type: 'advance', atMs: nowMs });
   };
 
   const doPauseResume = async () => {

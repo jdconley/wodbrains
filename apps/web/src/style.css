@@ -1818,6 +1818,59 @@ body {
   display: none;
 }
 
+/* Break overlay (manual advance) */
+.RunBreakOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-overlay);
+  z-index: 108;
+  padding: 24px;
+}
+
+.RunBreakOverlay.hidden {
+  display: none;
+}
+
+.RunBreakCard {
+  width: min(460px, 100%);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--bg-surface);
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+  text-align: center;
+}
+
+.RunBreakTitle {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.RunBreakDesc {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.RunBreakBtn {
+  justify-self: center;
+  min-width: 160px;
+}
+
+.RunBreakLeaderNote {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 /* Split overlay (bottom sheet) */
 .RunSplitOverlay {
   position: fixed;
