@@ -132,6 +132,17 @@ export async function renderDefinitionPage(root: HTMLElement, definitionId: stri
     const description = buildTimerDescription(workoutDefinition, plan);
     titleEl.textContent = description.title;
     setAppHeaderTitle(root, description.title);
+
+    // Best-effort: set a dynamic OG image URL client-side too.
+    // Note: crawlers generally won't execute JS; the Worker injects OG tags server-side for /w/:id.
+    const updatedAt = typeof def?.updatedAt === 'number' ? def.updatedAt : null;
+    const ogImageKey =
+      updatedAt != null ? `wb_og_def_v1_${definitionId}_${Math.round(updatedAt)}` : null;
+    const ogImageUrl = ogImageKey
+      ? new URL(`/og/definitions/${encodeURIComponent(ogImageKey)}.png`, window.location.origin)
+          .toString()
+      : undefined;
+
     updateMeta({
       title: `${description.title} - WOD Brains`,
       description:
@@ -140,6 +151,7 @@ export async function renderDefinitionPage(root: HTMLElement, definitionId: stri
           ? `Run ${description.title} with WOD Brains.`
           : 'Run this workout timer on WOD Brains.'),
       url: new URL(`/w/${encodeURIComponent(definitionId)}`, window.location.origin).toString(),
+      image: ogImageUrl,
     });
     const blocks = workoutDefinition?.blocks ?? [];
     renderBlocks(blocks, stepsEl);

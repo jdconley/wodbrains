@@ -31,6 +31,7 @@
 	},
 	"dependencies": {
 		"@ai-sdk/google": "^3.0.13",
+		"@cf-wasm/og": "^0.3.5",
 		"@wodbrains/core": "workspace:*",
 		"ai": "^6.0.49",
 		"better-auth": "^1.4.17",

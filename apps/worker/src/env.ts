@@ -2,6 +2,9 @@ export interface Env {
 	// Static assets binding (Workers Static Assets)
 	ASSETS: Fetcher;
 
+	// R2 bucket for generated OG images
+	OG_IMAGES: R2Bucket;
+
 	// Durable Objects
 	RUN_ACTOR: DurableObjectNamespace;
 
@@ -19,4 +22,5 @@ export interface Env {
 
 	// Test helpers
 	STUB_PARSE?: string;
+	STUB_OG?: string;
 }

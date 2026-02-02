@@ -47,6 +47,7 @@ jobs:
           CLOUDFLARE_ZONE_NAME: ${{ secrets.CLOUDFLARE_ZONE_NAME }}
           CLOUDFLARE_ROUTE_WODBRAINS: ${{ secrets.CLOUDFLARE_ROUTE_WODBRAINS }}
           CLOUDFLARE_ROUTE_WWW: ${{ secrets.CLOUDFLARE_ROUTE_WWW }}
+          CLOUDFLARE_R2_BUCKET_OG_IMAGES: ${{ secrets.CLOUDFLARE_R2_BUCKET_OG_IMAGES }}
 
       # Tests (worker Vitest + Playwright webServer) can regenerate `apps/worker/wrangler.jsonc`
       # with placeholder values. Regenerate it strictly with real secrets before migrations/deploy.
@@ -58,6 +59,7 @@ jobs:
           CLOUDFLARE_ZONE_NAME: ${{ secrets.CLOUDFLARE_ZONE_NAME }}
           CLOUDFLARE_ROUTE_WODBRAINS: ${{ secrets.CLOUDFLARE_ROUTE_WODBRAINS }}
           CLOUDFLARE_ROUTE_WWW: ${{ secrets.CLOUDFLARE_ROUTE_WWW }}
+          CLOUDFLARE_R2_BUCKET_OG_IMAGES: ${{ secrets.CLOUDFLARE_R2_BUCKET_OG_IMAGES }}
 
       - name: Apply D1 migrations
         uses: cloudflare/wrangler-action@v3

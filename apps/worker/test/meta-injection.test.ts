@@ -9,6 +9,13 @@ const getMetaContent = (html: string, attr: 'name' | 'property', key: string) =>
 	return match?.[1] ?? null;
 };
 
+const toExampleUrl = (url: string) => {
+	const parsed = new URL(url);
+	parsed.protocol = 'https:';
+	parsed.host = 'example.com';
+	return parsed.toString();
+};
+
 async function signInAnonymous(): Promise<string> {
 	const signIn = await SELF.fetch('https://example.com/api/auth/sign-in/anonymous', {
 		method: 'POST',
@@ -53,7 +60,11 @@ describe('meta tag injection', () => {
 		expect(res.status).toBe(200);
 		const html = await res.text();
 		const ogTitle = getMetaContent(html, 'property', 'og:title');
+		const ogImage = getMetaContent(html, 'property', 'og:image');
 		expect(ogTitle).toBe('Fran - WOD Brains');
+		expect(ogImage).toMatch(
+			new RegExp(`https://wodbrains\\.com/og/definitions/wb_og_def_v1_${def.definitionId}_[0-9]+\\.png`),
+		);
 	});
 
 	it('escapes special characters in workout titles', async () => {
@@ -75,7 +86,26 @@ describe('meta tag injection', () => {
 		expect(res.status).toBe(200);
 		const html = await res.text();
 		const ogTitle = getMetaContent(html, 'property', 'og:title');
+		const ogImage = getMetaContent(html, 'property', 'og:image');
 		expect(ogTitle).toBe('Grace - WOD Brains');
+		expect(ogImage).toMatch(
+			new RegExp(`https://wodbrains\\.com/og/definitions/wb_og_def_v1_${def.definitionId}_[0-9]+\\.png`),
+		);
+	});
+
+	it('serves a generated og:image for definitions', async () => {
+		const cookie = await signInAnonymous();
+		const def = await createDefinition(cookie, 'Isabel');
+		const res = await SELF.fetch(`https://example.com/w/${def.definitionId}`);
+		expect(res.status).toBe(200);
+		const html = await res.text();
+		const ogImage = getMetaContent(html, 'property', 'og:image');
+		expect(ogImage).toBeTruthy();
+		const ogRes = await SELF.fetch(toExampleUrl(ogImage!));
+		expect(ogRes.status).toBe(200);
+		expect(ogRes.headers.get('content-type')).toContain('image/png');
+		const bytes = new Uint8Array(await ogRes.arrayBuffer());
+		expect(bytes.byteLength).toBeGreaterThan(0);
 	});
 
 	it('falls through to SPA for unknown definitions', async () => {

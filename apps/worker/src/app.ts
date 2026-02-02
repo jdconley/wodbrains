@@ -7,6 +7,14 @@ import { requireUserId } from './session';
 import { APIError } from 'better-auth/api';
 import { v7 as uuidv7 } from 'uuid';
 import { fetchImageAsFile } from './fetch-image';
+import {
+	OG_IMAGE_CACHE_CONTROL,
+	OG_IMAGE_CONTENT_TYPE,
+	buildDefinitionOgKey,
+	buildDefinitionOgObjectKey,
+	generateAndStoreDefinitionOgImage,
+	renderDefinitionOgPng,
+} from './og';
 import { z } from 'zod';
 import {
 	LATEST_DATA_VERSION,
@@ -30,11 +38,13 @@ const DEFAULT_TITLE = 'WOD Brains magically builds a smart timer from any workou
 const DEFAULT_DESCRIPTION =
 	'WOD Brains magically builds a smart timer from any workout. Paste a workout, drop a screenshot, or share a URL.';
 const DEFAULT_OG_IMAGE = `${DEFAULT_SITE_URL}/og-image.jpg`;
+const OG_IMAGE_URL_PREFIX = `${DEFAULT_SITE_URL}/og/definitions`;
 
 type MetaPayload = {
 	title: string;
 	description: string;
 	url: string;
+	image?: string;
 };
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -69,6 +79,7 @@ const upsertTitle = (htmlText: string, title: string) => {
 const injectMetaTags = async (c: Context<HonoEnv>, meta: MetaPayload) => {
 	const assetResponse = await c.env.ASSETS.fetch(c.req.raw);
 	const baseHtml = await assetResponse.text();
+	const image = meta.image ?? DEFAULT_OG_IMAGE;
 
 	let updatedHtml = baseHtml;
 	updatedHtml = upsertTitle(updatedHtml, meta.title);
@@ -76,10 +87,10 @@ const injectMetaTags = async (c: Context<HonoEnv>, meta: MetaPayload) => {
 	updatedHtml = upsertMetaTag(updatedHtml, 'property', 'og:title', meta.title);
 	updatedHtml = upsertMetaTag(updatedHtml, 'property', 'og:description', meta.description);
 	updatedHtml = upsertMetaTag(updatedHtml, 'property', 'og:url', meta.url);
-	updatedHtml = upsertMetaTag(updatedHtml, 'property', 'og:image', DEFAULT_OG_IMAGE);
+	updatedHtml = upsertMetaTag(updatedHtml, 'property', 'og:image', image);
 	updatedHtml = upsertMetaTag(updatedHtml, 'name', 'twitter:title', meta.title);
 	updatedHtml = upsertMetaTag(updatedHtml, 'name', 'twitter:description', meta.description);
-	updatedHtml = upsertMetaTag(updatedHtml, 'name', 'twitter:image', DEFAULT_OG_IMAGE);
+	updatedHtml = upsertMetaTag(updatedHtml, 'name', 'twitter:image', image);
 	updatedHtml = upsertLinkCanonical(updatedHtml, meta.url);
 
 	return c.html(updatedHtml);
@@ -98,6 +109,9 @@ const getPlanTitle = (timerPlanJson?: string | null): string | null => {
 	return null;
 };
 
+const buildDefinitionOgUrl = (ogImageKey?: string | null) =>
+	ogImageKey ? `${OG_IMAGE_URL_PREFIX}/${ogImageKey}.png` : DEFAULT_OG_IMAGE;
+
 const formatMetaDescription = (opts: { preview?: string | null; title?: string | null }) => {
 	const trimmedPreview = opts.preview?.trim();
 	if (trimmedPreview) {
@@ -107,6 +121,26 @@ const formatMetaDescription = (opts: { preview?: string | null; title?: string |
 		return `Run ${opts.title} with WOD Brains.`;
 	}
 	return DEFAULT_DESCRIPTION;
+};
+
+const isValidOgImageKey = (value: string) => /^[a-z0-9_-]+$/i.test(value) && value.length <= 200;
+
+const ensureDefinitionOgKey = async (
+	env: Env,
+	params: { definitionId: string; ogImageKey?: string | null; updatedAt?: number | null },
+): Promise<string | null> => {
+	if (params.ogImageKey) return params.ogImageKey;
+	if (!params.updatedAt) return null;
+	const nextKey = buildDefinitionOgKey(params.definitionId, params.updatedAt);
+	await env.DB.prepare(
+		`update timer_definitions
+     set ogImageKey = ?
+     where definitionId = ?
+       and (ogImageKey is null or ogImageKey = '')`,
+	)
+		.bind(nextKey, params.definitionId)
+		.run();
+	return nextKey;
 };
 
 const DefinitionSourceSchema = z
@@ -351,6 +385,7 @@ export function createApp() {
 
 				const now = Date.now();
 				const definitionId = uuidv7();
+				const ogImageKey = buildDefinitionOgKey(definitionId, now);
 
 				// Upgrade incoming definition shape (legacy) to latest, then compile a fresh plan.
 				const upgraded = upgradeDefinitionData({
@@ -363,8 +398,8 @@ export function createApp() {
 
 				await c.env.DB.prepare(
 					`insert into timer_definitions
-            (definitionId, ownerUserId, sourceKind, sourcePreview, workoutDefinitionJson, timerPlanJson, dataVersion, createdAt, updatedAt)
-           values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (definitionId, ownerUserId, sourceKind, sourcePreview, workoutDefinitionJson, timerPlanJson, ogImageKey, dataVersion, createdAt, updatedAt)
+           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				)
 					.bind(
 						definitionId,
@@ -373,11 +408,23 @@ export function createApp() {
 						body.source?.preview ?? null,
 						JSON.stringify(workoutDefinition),
 						JSON.stringify(timerPlan),
+						ogImageKey,
 						LATEST_DATA_VERSION,
 						now,
 						now,
 					)
 					.run();
+
+				if (c.executionCtx) {
+					c.executionCtx.waitUntil(
+						generateAndStoreDefinitionOgImage({
+							env: c.env,
+							ctx: c.executionCtx,
+							ogImageKey,
+							title: timerPlan.title ?? null,
+						}),
+					);
+				}
 
 				return c.json({ definitionId });
 			});
@@ -620,17 +667,37 @@ export function createApp() {
 				let workoutDefinition = WorkoutDefinitionSchema.parse(upgraded.workoutDefinition) as WorkoutDefinition;
 				workoutDefinition = { ...workoutDefinition, id: existingWorkoutDefinitionId };
 				const timerPlan = TimerPlanSchema.parse(compileWorkoutDefinition(workoutDefinition));
+				const ogImageKey = buildDefinitionOgKey(definitionId, now);
 
 				const res = await c.env.DB.prepare(
 					`update timer_definitions
-           set workoutDefinitionJson = ?, timerPlanJson = ?, dataVersion = ?, updatedAt = ?
+           set workoutDefinitionJson = ?, timerPlanJson = ?, ogImageKey = ?, dataVersion = ?, updatedAt = ?
            where definitionId = ? and ownerUserId = ?`,
 				)
-					.bind(JSON.stringify(workoutDefinition), JSON.stringify(timerPlan), LATEST_DATA_VERSION, now, definitionId, userId)
+					.bind(
+						JSON.stringify(workoutDefinition),
+						JSON.stringify(timerPlan),
+						ogImageKey,
+						LATEST_DATA_VERSION,
+						now,
+						definitionId,
+						userId,
+					)
 					.run();
 
 				if (!res.success || res.meta.changes === 0) {
 					return c.json({ error: 'not_found' }, 404);
+				}
+
+				if (c.executionCtx) {
+					c.executionCtx.waitUntil(
+						generateAndStoreDefinitionOgImage({
+							env: c.env,
+							ctx: c.executionCtx,
+							ogImageKey,
+							title: timerPlan.title ?? null,
+						}),
+					);
 				}
 
 				return c.json({ definitionId });
@@ -674,6 +741,7 @@ export function createApp() {
 
 				const newDefinitionId = uuidv7();
 				const now = Date.now();
+				const ogImageKey = buildDefinitionOgKey(newDefinitionId, now);
 
 				const upgraded = upgradeDefinitionData({
 					dataVersion: row.dataVersion ?? 1,
@@ -689,8 +757,8 @@ export function createApp() {
 
 				await c.env.DB.prepare(
 					`insert into timer_definitions
-            (definitionId, ownerUserId, sourceKind, sourcePreview, workoutDefinitionJson, timerPlanJson, dataVersion, createdAt, updatedAt)
-           values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (definitionId, ownerUserId, sourceKind, sourcePreview, workoutDefinitionJson, timerPlanJson, ogImageKey, dataVersion, createdAt, updatedAt)
+           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				)
 					.bind(
 						newDefinitionId,
@@ -699,11 +767,23 @@ export function createApp() {
 						row.sourcePreview,
 						JSON.stringify(workoutDefinition),
 						JSON.stringify(timerPlan),
+						ogImageKey,
 						LATEST_DATA_VERSION,
 						now,
 						now,
 					)
 					.run();
+
+				if (c.executionCtx) {
+					c.executionCtx.waitUntil(
+						generateAndStoreDefinitionOgImage({
+							env: c.env,
+							ctx: c.executionCtx,
+							ogImageKey,
+							title: timerPlan.title ?? null,
+						}),
+					);
+				}
 
 				return c.json({ definitionId: newDefinitionId });
 			});
@@ -946,16 +1026,73 @@ export function createApp() {
 		);
 	});
 
+	// --- Dynamic OG images (per definition) ---
+	app.get('/og/definitions/:ogImageKey', async (c) => {
+		const rawKey = c.req.param('ogImageKey');
+
+		const ogImageKey = rawKey?.endsWith('.png') ? rawKey.slice(0, -4) : rawKey;
+		if (!ogImageKey || !isValidOgImageKey(ogImageKey)) {
+			return c.text('not_found', 404);
+		}
+
+		const row = await c.env.DB.prepare(
+			`select timerPlanJson
+       from timer_definitions
+       where ogImageKey = ?`,
+		)
+			.bind(ogImageKey)
+			.first<{ timerPlanJson: string | null }>();
+
+		if (!row) return c.text('not_found', 404);
+
+		const objectKey = buildDefinitionOgObjectKey(ogImageKey);
+		const existing = await c.env.OG_IMAGES.get(objectKey);
+		if (existing) {
+			const headers = new Headers();
+			existing.writeHttpMetadata(headers);
+			headers.set('cache-control', OG_IMAGE_CACHE_CONTROL);
+			headers.set('content-type', headers.get('content-type') ?? OG_IMAGE_CONTENT_TYPE);
+			return new Response(existing.body, { headers });
+		}
+
+		if (!c.executionCtx) {
+			return c.text('execution_context_missing', 500);
+		}
+
+		const planTitle = getPlanTitle(row.timerPlanJson);
+		const bytes = await renderDefinitionOgPng({
+			title: planTitle,
+			ctx: c.executionCtx,
+			useStub: c.env.STUB_OG === '1',
+		});
+
+		c.executionCtx.waitUntil(
+			c.env.OG_IMAGES.put(objectKey, bytes, {
+				httpMetadata: {
+					contentType: OG_IMAGE_CONTENT_TYPE,
+					cacheControl: OG_IMAGE_CACHE_CONTROL,
+				},
+			}),
+		);
+
+		return new Response(bytes, {
+			headers: {
+				'content-type': OG_IMAGE_CONTENT_TYPE,
+				'cache-control': OG_IMAGE_CACHE_CONTROL,
+			},
+		});
+	});
+
 	// --- Meta tags for sharing (server-side) ---
 	app.get('/w/:definitionId', async (c) => {
 		const definitionId = c.req.param('definitionId');
 		const row = await c.env.DB.prepare(
-			`select timerPlanJson, sourcePreview
+			`select timerPlanJson, sourcePreview, ogImageKey, updatedAt
        from timer_definitions
        where definitionId = ?`,
 		)
 			.bind(definitionId)
-			.first<{ timerPlanJson: string; sourcePreview: string | null }>();
+			.first<{ timerPlanJson: string; sourcePreview: string | null; ogImageKey: string | null; updatedAt: number }>();
 
 		if (!row) {
 			return injectMetaTags(c, {
@@ -966,23 +1103,45 @@ export function createApp() {
 		}
 
 		const planTitle = getPlanTitle(row.timerPlanJson);
+		const ogImageKey = await ensureDefinitionOgKey(c.env, {
+			definitionId,
+			ogImageKey: row.ogImageKey,
+			updatedAt: row.updatedAt,
+		});
 		const title = planTitle ? `${planTitle} - WOD Brains` : DEFAULT_TITLE;
 		const description = formatMetaDescription({ preview: row.sourcePreview, title: planTitle });
 		const url = `${DEFAULT_SITE_URL}/w/${definitionId}`;
 
-		return injectMetaTags(c, { title, description, url });
+		if (c.executionCtx && ogImageKey && ogImageKey !== row.ogImageKey) {
+			c.executionCtx.waitUntil(
+				generateAndStoreDefinitionOgImage({
+					env: c.env,
+					ctx: c.executionCtx,
+					ogImageKey,
+					title: planTitle ?? null,
+				}),
+			);
+		}
+
+		return injectMetaTags(c, { title, description, url, image: buildDefinitionOgUrl(ogImageKey) });
 	});
 
 	app.get('/r/:runId', async (c) => {
 		const runId = c.req.param('runId');
 		const row = await c.env.DB.prepare(
-			`select r.definitionId, d.timerPlanJson, d.sourcePreview
+			`select r.definitionId, d.timerPlanJson, d.sourcePreview, d.ogImageKey, d.updatedAt
        from timer_runs r
        left join timer_definitions d on d.definitionId = r.definitionId
        where r.runId = ?`,
 		)
 			.bind(runId)
-			.first<{ definitionId: string | null; timerPlanJson: string | null; sourcePreview: string | null }>();
+			.first<{
+				definitionId: string | null;
+				timerPlanJson: string | null;
+				sourcePreview: string | null;
+				ogImageKey: string | null;
+				updatedAt: number | null;
+			}>();
 
 		if (!row) {
 			return injectMetaTags(c, {
@@ -993,11 +1152,29 @@ export function createApp() {
 		}
 
 		const planTitle = getPlanTitle(row.timerPlanJson);
+		const ogImageKey = row.definitionId
+			? await ensureDefinitionOgKey(c.env, {
+					definitionId: row.definitionId,
+					ogImageKey: row.ogImageKey,
+					updatedAt: row.updatedAt ?? null,
+				})
+			: null;
 		const title = planTitle ? `${planTitle} - WOD Brains` : 'Workout Run - WOD Brains';
 		const description = formatMetaDescription({ preview: row.sourcePreview, title: planTitle });
 		const url = `${DEFAULT_SITE_URL}/r/${runId}`;
 
-		return injectMetaTags(c, { title, description, url });
+		if (c.executionCtx && ogImageKey && ogImageKey !== row.ogImageKey) {
+			c.executionCtx.waitUntil(
+				generateAndStoreDefinitionOgImage({
+					env: c.env,
+					ctx: c.executionCtx,
+					ogImageKey,
+					title: planTitle ?? null,
+				}),
+			);
+		}
+
+		return injectMetaTags(c, { title, description, url, image: buildDefinitionOgUrl(ogImageKey) });
 	});
 
 	// Serve the SPA + static assets (Workers Static Assets binding).

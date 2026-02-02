@@ -5,6 +5,7 @@ export default defineWorkersConfig(async () => {
 	const migrations = await readD1Migrations(path.join(__dirname, 'migrations'));
 	const googleApiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? '';
 	const runLiveAiTests = process.env.RUN_LIVE_AI_TESTS ?? '0';
+	const ogImagesBucket = process.env.CLOUDFLARE_R2_BUCKET_OG_IMAGES ?? 'example-og-images';
 
 	return {
 		test: {
@@ -22,6 +23,10 @@ export default defineWorkersConfig(async () => {
 							GOOGLE_GENERATIVE_AI_API_KEY: googleApiKey,
 							RUN_LIVE_AI_TESTS: runLiveAiTests,
 							STUB_PARSE: '0',
+						STUB_OG: '1',
+						},
+						r2Buckets: {
+							OG_IMAGES: ogImagesBucket,
 						},
 					},
 				},

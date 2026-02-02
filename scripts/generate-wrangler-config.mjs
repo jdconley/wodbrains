@@ -37,6 +37,7 @@ const d1DatabaseId = requiredEnv(
 const zoneName = requiredEnv('CLOUDFLARE_ZONE_NAME', 'example.com');
 const routeWodbrains = requiredEnv('CLOUDFLARE_ROUTE_WODBRAINS', 'example.com');
 const routeWww = requiredEnv('CLOUDFLARE_ROUTE_WWW', 'www.example.com');
+const ogImagesBucket = optionalEnv('CLOUDFLARE_R2_BUCKET_OG_IMAGES') ?? 'example-og-images';
 
 const stubParse = optionalEnv('STUB_PARSE') ?? '0';
 
@@ -73,6 +74,12 @@ const wranglerConfig = {
 			binding: 'DB',
 			database_name: 'wodbrains',
 			database_id: d1DatabaseId,
+		},
+	],
+	r2_buckets: [
+		{
+			binding: 'OG_IMAGES',
+			bucket_name: ogImagesBucket,
 		},
 	],
 	observability: {
