@@ -27,6 +27,7 @@ import {
 } from '../components/header';
 import { updateMeta } from '../meta';
 import { haptics } from '../utils/haptics';
+import { initSounds, sounds } from '../utils/sound';
 import { showToast } from '../components/toast';
 
 type RunSnapshot = {
@@ -61,6 +62,13 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
         centerSlot: 'title',
         titleWithLogo: true,
         rightHtml: `
+          <button class="AppHeaderIconBtn RunHeaderAction" id="runHeaderSound" type="button" aria-label="Mute sounds" aria-pressed="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+              <path d="M19 6a8.5 8.5 0 0 1 0 12"></path>
+            </svg>
+          </button>
           <button class="AppHeaderIconBtn RunHeaderAction RunHeaderAction--hidden" id="runHeaderShare" type="button" aria-label="Share run">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 3v12"/>
@@ -223,6 +231,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   const finishRepsEl = root.querySelector<HTMLDivElement>('#finishReps')!;
   const finishSplitsListEl = root.querySelector<HTMLDivElement>('#finishSplitsList')!;
   const finishDoneEl = root.querySelector<HTMLButtonElement>('#finishDone')!;
+  const headerSoundEl = root.querySelector<HTMLButtonElement>('#runHeaderSound')!;
   const headerShareEl = root.querySelector<HTMLButtonElement>('#runHeaderShare')!;
   const headerEditEl = root.querySelector<HTMLButtonElement>('#runHeaderEdit')!;
 
@@ -252,6 +261,36 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   };
 
   let definitionId: string | null = null;
+
+  const soundSvgOn = `
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+      <path d="M19 6a8.5 8.5 0 0 1 0 12"></path>
+    </svg>
+  `;
+  const soundSvgOff = `
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <line x1="23" y1="9" x2="17" y2="15"></line>
+      <line x1="17" y1="9" x2="23" y2="15"></line>
+    </svg>
+  `;
+  const updateSoundButton = () => {
+    const on = sounds.isEnabled();
+    headerSoundEl.setAttribute('aria-pressed', on ? 'true' : 'false');
+    headerSoundEl.setAttribute('aria-label', on ? 'Mute sounds' : 'Unmute sounds');
+    headerSoundEl.title = on ? 'Mute' : 'Unmute';
+    headerSoundEl.innerHTML = on ? soundSvgOn : soundSvgOff;
+  };
+  updateSoundButton();
+
+  headerSoundEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const on = sounds.toggleEnabled();
+    if (on) initSounds();
+    updateSoundButton();
+  });
 
   headerShareEl.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -325,6 +364,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
 
   // Event delegation for info and pause buttons near timer
   timerEl.addEventListener('click', (e) => {
+    initSounds();
     const target = e.target as HTMLElement;
     const infoBtn = target.closest<HTMLButtonElement>('[data-action="toggle-info"]');
     if (infoBtn) {
@@ -409,6 +449,8 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   let lastCountdownLabel = '';
   let lastBreakRenderKey = '';
   let breakWasVisible = false;
+  let soundEdgesReady = false;
+  let lastSegmentBlockIdForSound: string | undefined = undefined;
 
   type LocalSplit = { id: string; atMs: number; elapsedMs: number; label?: string };
   const loadLocalSplits = (): LocalSplit[] => {
@@ -463,6 +505,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   // Show the finish summary overlay with workout results
   const showFinishSummary = () => {
     haptics.celebration();
+    sounds.play('finish');
     const displaySplits = getDisplaySplits();
     const totalTime = simDerived.activeElapsedMs;
 
@@ -577,6 +620,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
 
   breakContinueEl.addEventListener('click', (e) => {
     e.stopPropagation();
+    initSounds();
     void advanceSegment();
   });
 
@@ -778,8 +822,12 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       countdownNumberEl.classList.add('animate');
       if (label === 'GO') {
         haptics.heavy();
+        sounds.play('countdown_go');
       } else {
         haptics.tick();
+        if (label === '3' || label === '2' || label === '1') {
+          sounds.play('countdown_tick');
+        }
       }
       lastCountdownLabel = label;
     }
@@ -861,6 +909,21 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       }
 
       timerValueEl.textContent = formatTimeMs(displayMs, { showTenths: true });
+
+      // Sound cues (edge-triggered): segment transitions + pause/resume.
+      if (soundEdgesReady) {
+        const segId = segment?.blockId;
+        if (segId !== lastSegmentBlockIdForSound) {
+          if (segId) {
+            const label = segment?.label?.trim() ?? '';
+            const isBreakSound = segment?.type === 'timer' && label.toLowerCase().includes('break');
+            sounds.play(isBreakSound ? 'segment_break' : 'segment_work');
+          }
+          lastSegmentBlockIdForSound = segId;
+        }
+      } else {
+        lastSegmentBlockIdForSound = segment?.blockId;
+      }
 
       // Counters (round/interval/etc) — only re-render when values change,
       // otherwise buttons become unclickable due to DOM churn.
@@ -1170,6 +1233,12 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
 
       if (lastStatus !== simDerived.status) {
         if (simDerived.status === 'running') showTapHintTemporarily();
+        if (lastStatus === 'running' && simDerived.status === 'paused') {
+          sounds.play('pause');
+        }
+        if (lastStatus === 'paused' && simDerived.status === 'running') {
+          sounds.play('resume');
+        }
         lastStatus = simDerived.status;
       }
 
@@ -1197,6 +1266,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       }
       updateCornerInfo();
       updateUIForStatus();
+      soundEdgesReady = true;
     };
 
     rafId = window.requestAnimationFrame(render);
@@ -1393,6 +1463,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
 
     // Show the celebration animation
     haptics.medium();
+    sounds.play('rep');
     showRepCelebration(nextIndex, deltaMs);
 
     if (canControl) {
@@ -1404,6 +1475,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     const target = e.target as HTMLElement;
     // Avoid double-triggering when clicking buttons/inputs.
     if (target.closest('button, a, input, textarea')) return;
+    initSounds();
 
     // Only count reps if timer is running
     if (simDerived.status === 'running') {
@@ -1415,6 +1487,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   tapSurfaceEl.addEventListener('keydown', (e) => {
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
+      initSounds();
       if (simDerived.status === 'running') {
         void recordSplit();
       }
@@ -1423,6 +1496,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
 
   // Start overlay click triggers countdown sequence
   startOverlayEl.addEventListener('click', () => {
+    initSounds();
     if (simDerived.status === 'idle' && !simDerived.startedAtMs) {
       void scheduleStart();
     }
@@ -1432,6 +1506,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   startOverlayEl.addEventListener('keydown', (e) => {
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
+      initSounds();
       if (simDerived.status === 'idle' && !simDerived.startedAtMs) {
         void scheduleStart();
       }
