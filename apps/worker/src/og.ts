@@ -117,6 +117,10 @@ const buildDefinitionOgHtml = (title: string) => {
         flex: 0 0 auto;
       }
       .Logo svg { width: 100%; height: 100%; }
+      .Text {
+        display: flex;
+        flex-direction: column;
+      }
       .Brand {
         letter-spacing: 0.32em;
         text-transform: uppercase;
@@ -141,7 +145,7 @@ const buildDefinitionOgHtml = (title: string) => {
   <body>
     <div class="Content">
       <div class="Logo">${LOGO_SVG}</div>
-      <div>
+      <div class="Text">
         <div class="Brand">WOD Brains</div>
         <div class="Title">${safeTitle}</div>
         <div class="Subtitle">Timer created for this workout.</div>
@@ -149,6 +153,10 @@ const buildDefinitionOgHtml = (title: string) => {
     </div>
   </body>
 </html>`;
+};
+
+export const __testing = {
+	buildDefinitionOgHtml,
 };
 
 export const buildDefinitionOgKey = (definitionId: string, updatedAt: number) =>
