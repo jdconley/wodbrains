@@ -270,7 +270,7 @@ describeLive('Parse evals (live)', () => {
 					const actual = rootSegments[index];
 					expect(actual?.type).toBe(expected.type);
 					if (expected.labelIncludes) {
-						expect((actual?.label ?? '').toLowerCase()).toContain(expected.labelIncludes.toLowerCase());
+						expect(((actual as Extract<TimerPlanSegment, { type: 'sequence' | 'repeat' }>)?.label ?? '').toLowerCase()).toContain(expected.labelIncludes.toLowerCase());
 					}
 					if (typeof expected.rounds === 'number') {
 						expect(actual?.type).toBe('repeat');
