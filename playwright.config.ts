@@ -2,8 +2,12 @@ import { defineConfig } from '@playwright/test';
 
 // CI sometimes binds dev servers differently across IPv4/IPv6.
 // Use explicit hosts per server to avoid readiness checks hanging.
+const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
 const workerHost = process.env.E2E_WORKER_HOST ?? '127.0.0.1';
-const webHost = process.env.E2E_WEB_HOST ?? 'localhost';
+// In CI, prefer IPv4 loopback for readiness checks; on macOS Vite commonly binds ::1 for localhost.
+const webHost = process.env.E2E_WEB_HOST ?? (isGitHubActions ? '127.0.0.1' : 'localhost');
+// In CI bind Vite to all IPv4 interfaces so it's reachable via 127.0.0.1.
+const webListenHost = process.env.E2E_WEB_LISTEN_HOST ?? (isGitHubActions ? '0.0.0.0' : webHost);
 const workerPort = Number(process.env.E2E_WORKER_PORT ?? 8788);
 const webPort = Number(process.env.E2E_WEB_PORT ?? 5174);
 const workerOrigin = `http://${workerHost}:${workerPort}`;
@@ -14,6 +18,7 @@ if (process.env.CI) {
   console.log('[playwright] CI webServer config', {
     workerHost,
     webHost,
+    webListenHost,
     workerPort,
     webPort,
     workerOrigin,
@@ -47,7 +52,7 @@ export default defineConfig({
     {
       command:
         `echo "[playwright] starting web webServer (vite) on ${webOrigin}" && ` +
-        `pnpm --filter web dev -- --host ${webHost} --port ${webPort}`,
+        `pnpm --filter web dev -- --host ${webListenHost} --port ${webPort} --strictPort`,
       url: webOrigin,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
