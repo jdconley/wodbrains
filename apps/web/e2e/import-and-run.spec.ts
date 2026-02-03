@@ -43,6 +43,9 @@ test('import text -> generate -> start -> run controls', async ({ page }) => {
 
   // Pause freezes the timer
   await pause.click();
+  // Wait for the UI to reflect the paused state (button switches to Resume).
+  // Without this, the timer can advance a tick or two while the pause event round-trips.
+  await expect(pause).toHaveAttribute('title', 'Resume');
   const t1 = parseTimerMs(await timer.textContent());
   await page.waitForTimeout(600);
   const t2 = parseTimerMs(await timer.textContent());
@@ -50,6 +53,7 @@ test('import text -> generate -> start -> run controls', async ({ page }) => {
 
   // Resume makes the timer tick again
   await pause.click();
+  await expect(pause).toHaveAttribute('title', 'Pause');
   await page.waitForTimeout(600);
   const t3 = parseTimerMs(await timer.textContent());
   expect(t3).toBeGreaterThan(t2);
