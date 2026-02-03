@@ -69,7 +69,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
               <path d="M19 6a8.5 8.5 0 0 1 0 12"></path>
             </svg>
           </button>
-          <button class="AppHeaderIconBtn RunHeaderAction RunHeaderAction--hidden" id="runHeaderShare" type="button" aria-label="Share run">
+          <button class="AppHeaderIconBtn RunHeaderAction RunHeaderAction--hidden" id="runHeaderShare" type="button" aria-label="Invite friends to this workout">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 3v12"/>
               <path d="M7 8l5-5 5 5"/>
@@ -104,13 +104,13 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       <div class="RunStartOverlay" id="startOverlay" role="button" tabindex="0" aria-label="Tap anywhere to start workout">
         <div class="RunStartOverlayContent">
           <div class="StartOverlayText">Tap anywhere to start</div>
-          <button class="SecondaryBtn RunStartShareBtn" id="startShareBtn" type="button" aria-label="Share run link">
+          <button class="SecondaryBtn RunStartShareBtn" id="startShareBtn" type="button" aria-label="Invite friends to this workout">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 3v12"/>
               <path d="M7 8l5-5 5 5"/>
               <rect x="4" y="13" width="16" height="8" rx="2"/>
             </svg>
-            Share run
+            Invite friends
           </button>
         </div>
       </div>
@@ -595,7 +595,8 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   const shareRunLink = async () => {
     const url = new URL(`/r/${encodeURIComponent(runId)}`, window.location.origin).toString();
     const title = timerPlan?.title?.trim() ? `WOD Brains · ${timerPlan.title}` : 'WOD Brains';
-    const text = 'Workout at the same time with friends. Join this live run on WOD Brains.';
+    const text =
+      "Workout at the same time with friends. You're invited to join my workout live on WOD Brains.";
     try {
       if (navigator.share) {
         await navigator.share({ title, text, url });

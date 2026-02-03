@@ -271,7 +271,7 @@ export async function renderDefinitionPage(root: HTMLElement, definitionId: stri
         window.location.origin,
       ).toString();
       const title = description.title?.trim() ? `WOD Brains · ${description.title}` : 'WOD Brains';
-      const text = 'Workout at the same time with friends. Start this workout on WOD Brains.';
+      const text = 'Try this workout on WOD Brains. Start it and invite friends to join live.';
       try {
         if (navigator.share) {
           await navigator.share({ title, text, url });

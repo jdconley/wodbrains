@@ -3,6 +3,9 @@ import { expectPillLabelButton, expectPillLabelButtonFlatOnHover } from './helpe
 
 test.describe('Share links', () => {
   test('definition share uses Web Share API', async ({ page }) => {
+    // Use mobile viewport to access the header share button (MobileOnly element)
+    await page.setViewportSize({ width: 390, height: 844 });
+
     await page.addInitScript(() => {
       (navigator as any).share = async (data: any) => {
         (window as any).__lastShare = data;
@@ -14,12 +17,12 @@ test.describe('Share links', () => {
     await page.locator('#generate').click();
     await expect(page).toHaveURL(/\/w\//);
 
-    // Share is now exposed via the header icon (desktop + mobile).
+    // Share button in header (MobileOnly - visible on mobile viewports)
     await page.locator('#shareWorkoutHeader').click();
     const share = await page.evaluate(() => (window as any).__lastShare);
     expect(share?.url).toContain('/w/');
     expect(typeof share?.text).toBe('string');
-    expect(share.text.startsWith('Workout at the same time with friends')).toBe(true);
+    expect(share.text.startsWith('Try this workout on WOD Brains')).toBe(true);
   });
 
   test('run share uses Web Share API', async ({ page }) => {

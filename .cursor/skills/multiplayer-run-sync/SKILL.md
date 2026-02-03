@@ -116,13 +116,14 @@ Gotchas:
 
 ## Share UX
 
-- Run page start overlay includes a **Share run** button:
+- Run page start overlay includes an **Invite friends** button:
   - Uses `navigator.share({ title, text, url })` when available.
   - Fallback: copy run URL to clipboard.
-  - Text must start with:
-    - `Workout at the same time with friends`
-- Workout definition page includes a **Share workout** button:
+  - Share text: `Workout at the same time with friends. You're invited to join my workout live on WOD Brains.`
+  - ARIA label: `Invite friends to this workout`
+- Workout definition page includes a **Share workout** button (header icon):
   - Shares `/w/<definitionId>` (so others can create their own runs).
+  - Share text: `Try this workout on WOD Brains. Start it and invite friends to join live.`
 
 ## Common gotchas before changing anything
 

@@ -492,7 +492,7 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
       derivedTitle: description.title,
     });
     const title = shareBase ? `WOD Brains · ${shareBase}` : 'WOD Brains';
-    const text = 'Workout at the same time with friends. Start this workout on WOD Brains.';
+    const text = 'Try this workout on WOD Brains. Start it and invite friends to join live.';
     try {
       if (navigator.share) {
         await navigator.share({ title, text, url });
