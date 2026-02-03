@@ -23,6 +23,7 @@ import {
 	WorkoutDefinitionSchema,
 	compileWorkoutDefinition,
 	upgradeDefinitionData,
+	type TimerPlan,
 	type WorkoutDefinition,
 } from '@wodbrains/core';
 
