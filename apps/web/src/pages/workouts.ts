@@ -1,6 +1,7 @@
 import { listDefinitions, type DefinitionListItem } from '../api';
 import { navigate } from '../router';
 import { appHeader, setupAppHeader } from '../components/header';
+import { appFooter } from '../components/footer';
 import { updateMeta } from '../meta';
 import { showToast } from '../components/toast';
 
@@ -20,21 +21,7 @@ export async function renderWorkoutsPage(root: HTMLElement) {
         <div class="Status" id="status" role="status" aria-live="polite"></div>
         <div class="InfiniteSentinel" id="sentinel" aria-hidden="true"></div>
       </main>
-      <footer class="PageFooter">
-        <p class="FooterTagline">
-          WOD Brains magically builds a smart timer from any workout. Paste text, drop a screenshot, or share a URL.
-        </p>
-        <div class="FooterLinks">
-          <a href="/about" class="FooterLink">About</a>
-          <span class="FooterDivider" aria-hidden="true">·</span>
-          <a href="/terms" class="FooterLink">Terms</a>
-          <span class="FooterDivider" aria-hidden="true">·</span>
-          <a href="/privacy" class="FooterLink">Privacy</a>
-          <span class="FooterDivider" aria-hidden="true">·</span>
-          <a href="mailto:jd@conleychaos.com" class="FooterLink">Contact Us</a>
-        </div>
-        <div class="FooterCopyright">WOD Brains™ · © 2026 Conley Chaos LLC</div>
-      </footer>
+      ${appFooter()}
     </div>
   `;
 

@@ -9,6 +9,7 @@ import {
 } from '../api';
 import { navigate } from '../router';
 import { appHeader, setupAppHeader } from '../components/header';
+import { appFooter } from '../components/footer';
 import { updateMeta } from '../meta';
 import { haptics, startRumble, stopRumble } from '../utils/haptics';
 import { showToast } from '../components/toast';
@@ -62,21 +63,7 @@ export function renderImportPage(root: HTMLElement) {
         </div>
       </main>
 
-      <footer class="PageFooter">
-        <p class="FooterTagline">
-          WOD Brains magically builds a smart timer from any workout. Paste text, drop a screenshot, share a URL, or type a web search.
-        </p>
-        <div class="FooterLinks">
-          <a href="/about" class="FooterLink">About</a>
-          <span class="FooterDivider" aria-hidden="true">·</span>
-          <a href="/terms" class="FooterLink">Terms</a>
-          <span class="FooterDivider" aria-hidden="true">·</span>
-          <a href="/privacy" class="FooterLink">Privacy</a>
-          <span class="FooterDivider" aria-hidden="true">·</span>
-          <a href="mailto:jd@conleychaos.com" class="FooterLink">Contact Us</a>
-        </div>
-        <div class="FooterCopyright">WOD Brains™ · © 2026 Conley Chaos LLC</div>
-      </footer>
+      ${appFooter()}
 
       <div class="GenerateOverlay hidden" id="generateOverlay" role="alert" aria-live="assertive">
         <div class="GenerateOverlayContent">

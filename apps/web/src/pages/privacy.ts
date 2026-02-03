@@ -1,4 +1,5 @@
 import { appHeader, setAppHeaderTitle, setupAppHeader } from '../components/header';
+import { appFooter } from '../components/footer';
 import { updateMeta } from '../meta';
 
 export function renderPrivacyPage(root: HTMLElement) {
@@ -117,21 +118,7 @@ export function renderPrivacyPage(root: HTMLElement) {
         </section>
       </main>
 
-      <footer class="PageFooter">
-        <p class="FooterTagline">
-          WOD Brains magically builds a smart timer from any workout. Paste text, drop a screenshot, or share a URL.
-        </p>
-        <div class="FooterLinks">
-          <a href="/about" class="FooterLink">About</a>
-          <span class="FooterDivider" aria-hidden="true">·</span>
-          <a href="/terms" class="FooterLink">Terms</a>
-          <span class="FooterDivider" aria-hidden="true">·</span>
-          <a href="/privacy" class="FooterLink">Privacy</a>
-          <span class="FooterDivider" aria-hidden="true">·</span>
-          <a href="mailto:jd@conleychaos.com" class="FooterLink">Contact Us</a>
-        </div>
-        <div class="FooterCopyright">WOD Brains™ · © 2026 Conley Chaos LLC</div>
-      </footer>
+      ${appFooter()}
     </div>
   `;
 
