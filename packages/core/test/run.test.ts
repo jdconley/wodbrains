@@ -76,6 +76,14 @@ describe('deriveRunState', () => {
     const done = deriveRunState(plan, events, 4000);
     expect(done.status).toBe('finished');
     expect(done.segment?.remainingMs ?? 0).toBe(0);
+    // After a natural completion (no explicit finish event), elapsed should freeze at the end.
+    expect(done.activeElapsedMs).toBe(3000);
+    expect(done.display.elapsedMs).toBe(3000);
+
+    const later = deriveRunState(plan, events, 10_000);
+    expect(later.status).toBe('finished');
+    expect(later.activeElapsedMs).toBe(3000);
+    expect(later.display.elapsedMs).toBe(3000);
   });
 
   it('amrap-only: countdown stays active and advance increments rounds', () => {
@@ -110,6 +118,7 @@ describe('deriveRunState', () => {
 
     const done = deriveRunState(plan, [...events, { id: 'a1', type: 'advance', atMs: 1000 }], 4000);
     expect(done.status).toBe('finished');
+    expect(done.activeElapsedMs).toBe(3000);
   });
 
   it('advance moves through manual segments', () => {

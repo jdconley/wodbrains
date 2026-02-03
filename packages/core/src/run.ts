@@ -112,13 +112,13 @@ export function deriveRunState(
   };
 
   const effectiveNowMs = finishedAtEventMs ? Math.min(nowMs, finishedAtEventMs) : nowMs;
-  const activeElapsedNow = computeActiveElapsedAt(effectiveNowMs);
+  let activeElapsedNow = computeActiveElapsedAt(effectiveNowMs);
 
   // Determine status + display time
   let status: DerivedRunState['status'] = pausedAtMs ? 'paused' : 'running';
   let finishedAtMs: number | undefined = finishedAtEventMs;
 
-  const displayElapsedMs = activeElapsedNow;
+  let displayElapsedMs = activeElapsedNow;
 
   if (finishedAtEventMs) status = 'finished';
 
@@ -410,6 +410,13 @@ export function deriveRunState(
   if (!activeSegment && status !== 'finished') {
     status = 'finished';
     finishedAtMs = finishedAtMs ?? nowMs;
+    // If the plan naturally completes (no explicit finish event), freeze elapsed at the plan end.
+    // Without this, `nowMs` keeps advancing and the UI timer keeps ticking upward after completion.
+    if (!finishedAtEventMs) {
+      const endElapsedMs = Math.max(0, offset);
+      activeElapsedNow = Math.min(activeElapsedNow, endElapsedMs);
+      displayElapsedMs = Math.min(displayElapsedMs, endElapsedMs);
+    }
   }
 
   const defaultCounters =
