@@ -108,6 +108,12 @@ type ParseMeta = {
 type AttributionSource = { url: string; title?: string };
 type Attribution = { sources: AttributionSource[] };
 
+type AiSdkUrlSource = {
+	sourceType?: unknown;
+	url?: unknown;
+	title?: unknown;
+};
+
 export const normalizeAttributionUrl = (raw: string): string | null => {
 	try {
 		const u = new URL(raw);
@@ -122,6 +128,27 @@ export const normalizeAttributionUrl = (raw: string): string | null => {
 	} catch {
 		return null;
 	}
+};
+
+export const extractAttributionSourcesFromAiSdkSources = (raw: unknown): AttributionSource[] => {
+	if (!Array.isArray(raw)) return [];
+	const ordered: AttributionSource[] = [];
+	const seen = new Set<string>();
+
+	for (const item of raw) {
+		const src = item as AiSdkUrlSource;
+		const sourceType = typeof src?.sourceType === 'string' ? src.sourceType : '';
+		if (sourceType && sourceType !== 'url') continue;
+		const url = typeof src?.url === 'string' ? src.url : '';
+		const norm = normalizeAttributionUrl(url);
+		if (!norm) continue;
+		if (seen.has(norm)) continue;
+		seen.add(norm);
+		const title = typeof src?.title === 'string' && src.title.trim() ? src.title.trim().slice(0, 140) : undefined;
+		ordered.push({ url: norm, ...(title ? { title } : {}) });
+	}
+
+	return ordered;
 };
 
 export const extractAttributionSourcesFromProviderMetadata = (params: {
@@ -546,6 +573,7 @@ export async function parseWorkout(
 		title?: string;
 		rawText?: string;
 		providerMetadata?: any;
+		aiSources?: unknown;
 	}> => {
 		try {
 			const titleTools = {
@@ -575,19 +603,22 @@ export async function parseWorkout(
 				],
 			} as any);
 
+			const aiSources = (result as any)?.sources;
+
 			const rawText = result.text?.trim() ? result.text : undefined;
 			if (!rawText) {
-				return { title: undefined, rawText, providerMetadata: result.providerMetadata };
+				return { title: undefined, rawText, providerMetadata: result.providerMetadata, aiSources };
 			}
 			const raw = extractJsonObject(rawText);
 			const parsed = LLMWorkoutTitleSchema.safeParse(raw);
 			if (!parsed.success) {
-				return { title: undefined, rawText, providerMetadata: result.providerMetadata };
+				return { title: undefined, rawText, providerMetadata: result.providerMetadata, aiSources };
 			}
 			return {
 				title: sanitizeWorkoutTitle(parsed.data.title),
 				rawText,
 				providerMetadata: result.providerMetadata,
+				aiSources,
 			};
 		} catch (err) {
 			const errName = err instanceof Error ? err.name : typeof err;
@@ -601,6 +632,7 @@ export async function parseWorkout(
 		let output: unknown;
 		let providerMetadata: any;
 		let rawText: string | undefined;
+		let aiSources: unknown;
 		const maxAttempts = 3;
 		for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 			try {
@@ -645,6 +677,7 @@ export async function parseWorkout(
 				rawText = result.text;
 				output = extractJsonObject(result.text);
 				providerMetadata = result.providerMetadata;
+				aiSources = (result as any)?.sources;
 				break;
 			} catch (err) {
 				const errName = err instanceof Error ? err.name : typeof err;
@@ -676,14 +709,15 @@ export async function parseWorkout(
 			throw new Error('Model did not return an output');
 		}
 
-		return { output, providerMetadata, rawModelText: rawText };
+		return { output, providerMetadata, rawModelText: rawText, aiSources };
 	})();
 
-	const { output, providerMetadata, rawModelText: parseRawModelText } = await parsePromise;
+	const { output, providerMetadata, rawModelText: parseRawModelText, aiSources: parseAiSources } = await parsePromise;
 	const rawModelText = parseRawModelText;
 	let generatedTitle: string | undefined;
 	let titleRawText: string | undefined;
 	let titleProviderMetadata: any;
+	let titleAiSources: unknown;
 
 	const isVertexGroundingRedirectUrl = (raw: string): boolean => {
 		try {
@@ -812,6 +846,7 @@ export async function parseWorkout(
 		generatedTitle = titleResult.title;
 		titleRawText = titleResult.rawText;
 		titleProviderMetadata = titleResult.providerMetadata;
+		titleAiSources = titleResult.aiSources;
 	}
 	const resolvedTitle = selectWorkoutTitle(parsed.title, generatedTitle);
 	console.info('[worker] parsed workoutDefinition', {
@@ -1011,6 +1046,44 @@ export async function parseWorkout(
 		titleProviderMetadata,
 		explicitUrl: url,
 	});
+
+	// AI SDK also exposes provider-agnostic sources when available.
+	// Prefer these over providerMetadata when present (they are already URL-focused citations).
+	const aiSdkSources = [
+		...extractAttributionSourcesFromAiSdkSources(parseAiSources),
+		...extractAttributionSourcesFromAiSdkSources(titleAiSources),
+	];
+	if (aiSdkSources.length) {
+		// Merge in, preserving order, de-duping by normalized URL.
+		const merged: AttributionSource[] = [];
+		const seen = new Set<string>();
+		const add = (src: AttributionSource) => {
+			const norm = normalizeAttributionUrl(src.url);
+			if (!norm) return;
+			if (seen.has(norm)) return;
+			seen.add(norm);
+			merged.push({ url: norm, ...(src.title ? { title: src.title } : {}) });
+		};
+		for (const s of aiSdkSources) add(s);
+		for (const s of sources) add(s);
+		sources = merged;
+	}
+
+	// If we used Google Search but didn't get any concrete URLs, fall back to a deterministic
+	// search-results link so users can still see what query was used.
+	if (!sources.length) {
+		const queries = providerMetadata?.google?.groundingMetadata?.webSearchQueries;
+		const q = Array.isArray(queries) && typeof queries[0] === 'string' ? queries[0].trim() : '';
+		if (q) {
+			sources = [
+				{
+					url: `https://www.google.com/search?q=${encodeURIComponent(q)}`,
+					title: `Google Search: ${q}`.slice(0, 140),
+				},
+			];
+		}
+	}
+
 	sources = await resolveAttributionSourceUrls(sources);
 	const attribution: Attribution | null = sources.length ? { sources } : null;
 

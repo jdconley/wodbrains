@@ -5,6 +5,7 @@ export type Route =
   | { name: 'terms' }
   | { name: 'workouts' }
   | { name: 'definition'; definitionId: string }
+  | { name: 'definition-debug'; definitionId: string }
   | { name: 'definition-edit'; definitionId: string }
   | { name: 'run'; runId: string };
 
@@ -23,6 +24,10 @@ export function getRoute(): Route {
   const defEditMatch = path.match(/^\/w\/([^/]+)\/edit$/);
   if (defEditMatch)
     return { name: 'definition-edit', definitionId: decodeURIComponent(defEditMatch[1]) };
+
+  const defDebugMatch = path.match(/^\/w\/([^/]+)\/debug$/);
+  if (defDebugMatch)
+    return { name: 'definition-debug', definitionId: decodeURIComponent(defDebugMatch[1]) };
 
   const defMatch = path.match(/^\/w\/([^/]+)$/);
   if (defMatch) return { name: 'definition', definitionId: decodeURIComponent(defMatch[1]) };

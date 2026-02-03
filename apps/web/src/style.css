@@ -3089,6 +3089,125 @@ body {
   border-radius: var(--radius-sm);
 }
 
+/* ---- Debug page ---- */
+.DebugContent {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.DebugActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.DebugGrid {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.DebugSection {
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  border: none;
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.DebugSectionTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.DebugKv {
+  display: grid;
+  gap: 8px;
+}
+
+.DebugKvRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1.3fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.DebugKvKey {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.DebugKvValue {
+  font-size: 13px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.DebugEmpty {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.DebugSourceList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.DebugSourceItem {
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+}
+
+.DebugSourceLink {
+  color: var(--text);
+  text-decoration: none;
+  display: grid;
+  gap: 2px;
+}
+
+.DebugSourceTitle {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.DebugSourceHost {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.DebugPre {
+  margin: 0;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: #0f0f0f;
+  color: #ffffff;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow: auto;
+  max-height: 50vh;
+  white-space: pre;
+}
+
+.DebugPre--small {
+  max-height: 26vh;
+  font-size: 11px;
+}
+
 /* ---- Timer overlay ---- */
 .TimerOverlay {
   position: fixed;

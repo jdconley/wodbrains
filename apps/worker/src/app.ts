@@ -672,6 +672,7 @@ export function createApp() {
 					timerPlan: publicResult.timerPlan,
 					assumptions: publicResult.assumptions,
 					source: publicResult.source,
+					attribution: publicResult.attribution,
 				},
 			};
 			try {
@@ -1158,6 +1159,182 @@ export function createApp() {
 			dataVersion: LATEST_DATA_VERSION,
 			createdAt: row.createdAt,
 			updatedAt,
+		});
+	});
+
+	app.get('/api/definitions/:definitionId/debug', async (c) => {
+		c.header('cache-control', 'no-store');
+
+		const definitionId = c.req.param('definitionId');
+		const row = await c.env.DB.prepare(
+			`select definitionId, ownerUserId, sourceKind, sourcePreview, sourcesJson, workoutDefinitionJson, timerPlanJson, ogImageKey, dataVersion, createdAt, updatedAt
+       from timer_definitions
+       where definitionId = ?`,
+		)
+			.bind(definitionId)
+			.first<{
+				definitionId: string;
+				ownerUserId: string;
+				sourceKind: string | null;
+				sourcePreview: string | null;
+				sourcesJson: string | null;
+				workoutDefinitionJson: string;
+				timerPlanJson: string;
+				ogImageKey: string | null;
+				dataVersion: number | null;
+				createdAt: number;
+				updatedAt: number;
+			}>();
+
+		if (!row) return c.json({ error: 'not_found' }, 404);
+
+		const origin = await c.env.DB.prepare(
+			`select definitionId, parseId, payloadR2Key, payloadSha256, inputImageKey, createdAt
+       from definition_origins
+       where definitionId = ?
+       limit 1`,
+		)
+			.bind(definitionId)
+			.first<{
+				definitionId: string;
+				parseId: string;
+				payloadR2Key: string;
+				payloadSha256: string | null;
+				inputImageKey: string | null;
+				createdAt: number;
+			}>();
+
+		const parseId = origin?.parseId ?? null;
+		const attempt = parseId
+			? await c.env.DB.prepare(
+					`select parseId, requestId, userId, createdAt, inputKind, inputTextPreview, inputTextLen, inputUrl, inputUrlLen,
+                inputImageKey, inputImageMimeType, inputImageFilename, inputImageSize,
+                payloadR2Key, payloadSha256, outputTitlePreview, errorCode, errorMessage
+           from parse_attempts
+           where parseId = ?
+           limit 1`,
+				)
+					.bind(parseId)
+					.first<{
+						parseId: string;
+						requestId: string | null;
+						userId: string | null;
+						createdAt: number;
+						inputKind: string;
+						inputTextPreview: string | null;
+						inputTextLen: number | null;
+						inputUrl: string | null;
+						inputUrlLen: number | null;
+						inputImageKey: string | null;
+						inputImageMimeType: string | null;
+						inputImageFilename: string | null;
+						inputImageSize: number | null;
+						payloadR2Key: string;
+						payloadSha256: string | null;
+						outputTitlePreview: string | null;
+						errorCode: string | null;
+						errorMessage: string | null;
+					}>()
+			: null;
+
+		const payloadKey = normalizeR2Key(attempt?.payloadR2Key ?? origin?.payloadR2Key ?? null);
+		const payloadKeyValid = !!payloadKey && isValidR2Key(payloadKey);
+		const payloadHead = payloadKeyValid ? await c.env.OG_IMAGES.head(payloadKey!).catch(() => null) : null;
+		const payloadObject = payloadKeyValid ? await c.env.OG_IMAGES.get(payloadKey!).catch(() => null) : null;
+
+		let payloadText: string | null = null;
+		let payloadJson: unknown = null;
+		let payloadJsonError: string | null = null;
+		if (payloadObject) {
+			payloadText = await payloadObject.text().catch(() => null);
+			if (payloadText) {
+				try {
+					payloadJson = JSON.parse(payloadText);
+				} catch (err) {
+					payloadJsonError = err instanceof Error ? err.message : String(err);
+				}
+			}
+		}
+
+		const currentVersion = row.dataVersion ?? 1;
+		let upgradedWorkoutDefinition: WorkoutDefinition | null = null;
+		let upgradedTimerPlan: TimerPlan | null = null;
+		let upgradeError: string | null = null;
+		try {
+			const upgraded = upgradeDefinitionData({
+				dataVersion: currentVersion,
+				workoutDefinition: JSON.parse(row.workoutDefinitionJson),
+				timerPlan: JSON.parse(row.timerPlanJson),
+			});
+			upgradedWorkoutDefinition = WorkoutDefinitionSchema.parse(upgraded.workoutDefinition) as WorkoutDefinition;
+			upgradedTimerPlan = TimerPlanSchema.parse(upgraded.timerPlan);
+		} catch (err) {
+			upgradeError = err instanceof Error ? err.message : String(err);
+		}
+
+		let storedAttribution: { sources: Array<{ url: string; title?: string }> } | null = null;
+		if (row.sourcesJson) {
+			try {
+				const parsed = JSON.parse(row.sourcesJson) as any;
+				if (parsed && typeof parsed === 'object' && Array.isArray(parsed.sources)) {
+					storedAttribution = {
+						sources: parsed.sources
+							.map((s: any) => ({
+								url: typeof s?.url === 'string' ? s.url : '',
+								...(typeof s?.title === 'string' && s.title.trim() ? { title: s.title.trim() } : {}),
+							}))
+							.filter((s: any) => typeof s.url === 'string' && s.url.trim()),
+					};
+				}
+			} catch {
+				// ignore parse errors
+			}
+		}
+
+		return c.json({
+			definitionId,
+			definitionRow: {
+				definitionId: row.definitionId,
+				ownerUserId: row.ownerUserId,
+				sourceKind: row.sourceKind,
+				sourcePreview: row.sourcePreview,
+				sourcesJson: row.sourcesJson,
+				workoutDefinitionJson: row.workoutDefinitionJson,
+				timerPlanJson: row.timerPlanJson,
+				ogImageKey: row.ogImageKey,
+				dataVersion: row.dataVersion,
+				createdAt: row.createdAt,
+				updatedAt: row.updatedAt,
+			},
+			definition: {
+				source: { kind: row.sourceKind, preview: row.sourcePreview },
+				attribution: storedAttribution,
+				workoutDefinition: upgradedWorkoutDefinition,
+				timerPlan: upgradedTimerPlan,
+				dataVersion: currentVersion,
+				createdAt: row.createdAt,
+				updatedAt: row.updatedAt,
+				upgradeError,
+			},
+			origin: origin ?? null,
+			attempt: attempt ?? null,
+			r2: {
+				payloadKey: payloadKeyValid ? payloadKey : null,
+				payloadHead: payloadHead
+					? {
+							size: payloadHead.size,
+							etag: payloadHead.etag,
+							uploaded: payloadHead.uploaded.toISOString(),
+							customMetadata: payloadHead.customMetadata ?? null,
+							httpMetadata: payloadHead.httpMetadata ?? null,
+						}
+					: null,
+			},
+			payload: {
+				json: payloadJson,
+				text: payloadText,
+				jsonError: payloadJsonError,
+			},
 		});
 	});
 

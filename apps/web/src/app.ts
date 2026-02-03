@@ -6,6 +6,7 @@ import { renderTimerEditPage } from './pages/timer-edit';
 import { renderAboutPage } from './pages/about';
 import { renderPrivacyPage } from './pages/privacy';
 import { renderTermsPage } from './pages/terms';
+import { renderDefinitionDebugPage } from './pages/definition-debug';
 
 export function startApp(root: HTMLElement) {
   const render = async () => {
@@ -28,6 +29,10 @@ export function startApp(root: HTMLElement) {
     }
     if (route.name === 'definition') {
       await renderTimerEditPage(root, route.definitionId);
+      return;
+    }
+    if (route.name === 'definition-debug') {
+      await renderDefinitionDebugPage(root, route.definitionId);
       return;
     }
     if (route.name === 'definition-edit') {

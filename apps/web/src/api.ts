@@ -436,6 +436,14 @@ export async function getDefinition(definitionId: string): Promise<any> {
   return json;
 }
 
+export async function getDefinitionDebug(definitionId: string): Promise<any> {
+  const res = await fetchWithRetries(`/api/definitions/${encodeURIComponent(definitionId)}/debug`, {
+    credentials: 'include',
+  });
+  if (!res.ok) await throwApiError(res);
+  return (await res.json()) as any;
+}
+
 export async function getRunSnapshot(runId: string): Promise<any> {
   const res = await fetchWithRetries(`/api/runs/${encodeURIComponent(runId)}`, {
     credentials: 'include',
