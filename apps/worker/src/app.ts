@@ -255,9 +255,25 @@ const DefinitionSourceSchema = z
 	})
 	.optional();
 
+const DefinitionAttributionSourceSchema = z
+	.object({
+		url: z.string(),
+		title: z.string().optional(),
+	})
+	.strict();
+
+const DefinitionAttributionSchema = z
+	.object({
+		sources: z.array(DefinitionAttributionSourceSchema).optional(),
+	})
+	.strict()
+	.optional()
+	.nullable();
+
 const CreateDefinitionBodySchema = z.object({
 	workoutDefinition: z.unknown(),
 	source: DefinitionSourceSchema,
+	attribution: DefinitionAttributionSchema,
 	dataVersion: z.number().int().positive().optional(),
 	parseId: z.string().optional(),
 });
@@ -567,6 +583,14 @@ export function createApp() {
 					],
 				};
 				const timerPlan = compileWorkoutDefinition(def);
+				const attribution = {
+					sources: [
+						{ url: 'https://example.com/stub-workout', title: 'Example workout page' },
+						{ url: 'https://www.example.org/another-source', title: 'Another source page' },
+						{ url: 'https://developer.mozilla.org/en-US/', title: 'MDN Web Docs' },
+						{ url: 'https://www.wikipedia.org/', title: 'Wikipedia' },
+					],
+				};
 				const payloadKey = buildParsePayloadKey(parseId);
 				const payload = {
 					parseId,
@@ -593,6 +617,7 @@ export function createApp() {
 						timerPlan,
 						assumptions: ['STUB_PARSE=1'],
 						source: { kind: 'text', preview: 'stub' },
+						attribution,
 					},
 				};
 				try {
@@ -611,6 +636,7 @@ export function createApp() {
 					timerPlan,
 					assumptions: ['STUB_PARSE=1'],
 					source: { kind: 'text', preview: 'stub' },
+					attribution,
 					parseId,
 				});
 			}
@@ -857,16 +883,22 @@ export function createApp() {
 				const workoutDefinition = WorkoutDefinitionSchema.parse(upgraded.workoutDefinition) as WorkoutDefinition;
 				const timerPlan = TimerPlanSchema.parse(compileWorkoutDefinition(workoutDefinition));
 
+				const sourcesJson =
+					body.attribution?.sources && Array.isArray(body.attribution.sources) && body.attribution.sources.length
+						? JSON.stringify({ sources: body.attribution.sources })
+						: null;
+
 				await c.env.DB.prepare(
 					`insert into timer_definitions
-            (definitionId, ownerUserId, sourceKind, sourcePreview, workoutDefinitionJson, timerPlanJson, ogImageKey, dataVersion, createdAt, updatedAt)
-           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (definitionId, ownerUserId, sourceKind, sourcePreview, sourcesJson, workoutDefinitionJson, timerPlanJson, ogImageKey, dataVersion, createdAt, updatedAt)
+           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				)
 					.bind(
 						definitionId,
 						userId,
 						body.source?.kind ?? null,
 						body.source?.preview ?? null,
+						sourcesJson,
 						JSON.stringify(workoutDefinition),
 						JSON.stringify(timerPlan),
 						ogImageKey,
@@ -1052,7 +1084,7 @@ export function createApp() {
 	app.get('/api/definitions/:definitionId', async (c) => {
 		const definitionId = c.req.param('definitionId');
 		const row = await c.env.DB.prepare(
-			`select definitionId, ownerUserId, sourceKind, sourcePreview, workoutDefinitionJson, timerPlanJson, dataVersion, createdAt, updatedAt
+			`select definitionId, ownerUserId, sourceKind, sourcePreview, sourcesJson, workoutDefinitionJson, timerPlanJson, dataVersion, createdAt, updatedAt
        from timer_definitions
        where definitionId = ?`,
 		)
@@ -1062,6 +1094,7 @@ export function createApp() {
 				ownerUserId: string;
 				sourceKind: string | null;
 				sourcePreview: string | null;
+				sourcesJson: string | null;
 				workoutDefinitionJson: string;
 				timerPlanJson: string;
 				dataVersion: number | null;
@@ -1096,10 +1129,30 @@ export function createApp() {
 				.run();
 		}
 
+		let attribution: { sources: Array<{ url: string; title?: string }> } | null = null;
+		if (row.sourcesJson) {
+			try {
+				const parsed = JSON.parse(row.sourcesJson) as any;
+				if (parsed && typeof parsed === 'object' && Array.isArray(parsed.sources)) {
+					attribution = {
+						sources: parsed.sources
+							.map((s: any) => ({
+								url: typeof s?.url === 'string' ? s.url : '',
+								...(typeof s?.title === 'string' && s.title.trim() ? { title: s.title.trim() } : {}),
+							}))
+							.filter((s: any) => typeof s.url === 'string' && s.url.trim()),
+					};
+				}
+			} catch {
+				// ignore parse errors
+			}
+		}
+
 		return c.json({
 			definitionId: row.definitionId,
 			ownerUserId: row.ownerUserId,
 			source: { kind: row.sourceKind, preview: row.sourcePreview },
+			attribution,
 			workoutDefinition,
 			timerPlan,
 			dataVersion: LATEST_DATA_VERSION,
@@ -1210,7 +1263,7 @@ export function createApp() {
 			const definitionId = c.req.param('definitionId');
 			return await withIdempotency(c, userId, async () => {
 				const row = await c.env.DB.prepare(
-					`select workoutDefinitionJson, timerPlanJson, sourceKind, sourcePreview, dataVersion
+					`select workoutDefinitionJson, timerPlanJson, sourceKind, sourcePreview, sourcesJson, dataVersion
            from timer_definitions
            where definitionId = ?`,
 				)
@@ -1220,6 +1273,7 @@ export function createApp() {
 						timerPlanJson: string;
 						sourceKind: string | null;
 						sourcePreview: string | null;
+						sourcesJson: string | null;
 						dataVersion: number | null;
 					}>();
 
@@ -1243,14 +1297,15 @@ export function createApp() {
 
 				await c.env.DB.prepare(
 					`insert into timer_definitions
-            (definitionId, ownerUserId, sourceKind, sourcePreview, workoutDefinitionJson, timerPlanJson, ogImageKey, dataVersion, createdAt, updatedAt)
-           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (definitionId, ownerUserId, sourceKind, sourcePreview, sourcesJson, workoutDefinitionJson, timerPlanJson, ogImageKey, dataVersion, createdAt, updatedAt)
+           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				)
 					.bind(
 						newDefinitionId,
 						userId,
 						row.sourceKind,
 						row.sourcePreview,
+						row.sourcesJson ?? null,
 						JSON.stringify(workoutDefinition),
 						JSON.stringify(timerPlan),
 						ogImageKey,

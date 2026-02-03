@@ -3,8 +3,8 @@ import { defineWorkersConfig, readD1Migrations } from '@cloudflare/vitest-pool-w
 
 export default defineWorkersConfig(async () => {
 	const migrations = await readD1Migrations(path.join(__dirname, 'migrations'));
-	const googleApiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? '';
 	const runLiveAiTests = process.env.RUN_LIVE_AI_TESTS ?? '0';
+	const googleApiKey = runLiveAiTests === '1' ? (process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? '') : '';
 	const ogImagesBucket = process.env.CLOUDFLARE_R2_BUCKET_OG_IMAGES ?? 'example-og-images';
 
 	return {

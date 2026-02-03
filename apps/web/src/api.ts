@@ -218,6 +218,7 @@ export type ParseResponse = {
   timerPlan: TimerPlan;
   assumptions: string[];
   source: { kind: 'text' | 'url' | 'image'; preview: string };
+  attribution?: { sources: Array<{ url: string; title?: string }> } | null;
   parseId?: string;
 };
 
@@ -323,6 +324,7 @@ export async function createRun(
 export async function createDefinition(input: {
   workoutDefinition: WorkoutDefinition;
   source?: { kind?: string; preview?: string };
+  attribution?: { sources: Array<{ url: string; title?: string }> } | null;
   parseId?: string;
 }): Promise<{ definitionId: string }> {
   const workoutDefinition = WorkoutDefinitionSchema.parse(input.workoutDefinition);

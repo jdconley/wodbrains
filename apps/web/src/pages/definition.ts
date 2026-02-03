@@ -10,6 +10,7 @@ import { navigate } from '../router';
 import { type DisplayNode, workoutBlocksToDisplayNodes } from '../display/compact';
 import { appHeader, setupAppHeader, setAppHeaderTitle } from '../components/header';
 import { appFooter } from '../components/footer';
+import { mountSourcesWidget } from '../components/sources';
 import { updateMeta } from '../meta';
 
 function renderBlocks(blocks: WorkoutBlock[], target: HTMLElement) {
@@ -59,6 +60,8 @@ export async function renderDefinitionPage(root: HTMLElement, definitionId: stri
         <div class="DefinitionWorkout" id="steps"></div>
         <div class="Status" id="status" role="status" aria-live="polite"></div>
 
+        <div class="SourcesWidget" id="sourcesWidget"></div>
+
         <div class="DefinitionActions">
           <button class="PrimaryBtn IconBtn DefinitionGetSetBtn" id="startCountdown" type="button">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -101,6 +104,7 @@ export async function renderDefinitionPage(root: HTMLElement, definitionId: stri
   const titleEl = root.querySelector<HTMLDivElement>('#definitionTitle')!;
   const stepsEl = root.querySelector<HTMLDivElement>('#steps')!;
   const statusEl = root.querySelector<HTMLDivElement>('#status')!;
+  const sourcesEl = root.querySelector<HTMLDivElement>('#sourcesWidget')!;
   const startCountdownEl = root.querySelector<HTMLButtonElement>('#startCountdown')!;
   const shareWorkoutEl = root.querySelector<HTMLButtonElement>('#shareWorkout')!;
   const shareHeaderEl = root.querySelector<HTMLButtonElement>('#shareWorkoutHeader');
@@ -253,6 +257,12 @@ export async function renderDefinitionPage(root: HTMLElement, definitionId: stri
     });
     const blocks = workoutDefinition?.blocks ?? [];
     renderBlocks(blocks, stepsEl);
+
+    mountSourcesWidget({
+      container: sourcesEl,
+      sources: def?.attribution?.sources,
+      maxCollapsedIcons: 3,
+    });
 
     setStatus('', 'muted');
 

@@ -576,6 +576,7 @@ export function renderImportPage(root: HTMLElement) {
       const { definitionId } = await createDefinition({
         workoutDefinition: parsed.workoutDefinition,
         source: parsed.source,
+        attribution: parsed.attribution ?? null,
         parseId: parsed.parseId,
       });
       haptics.success();

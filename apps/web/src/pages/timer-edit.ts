@@ -18,6 +18,7 @@ import {
 import { getRoute, navigate } from '../router';
 import { appHeader, setupAppHeader } from '../components/header';
 import { appFooter } from '../components/footer';
+import { mountSourcesWidget } from '../components/sources';
 import { cleanTitlePart, formatSiteTitle, updateMeta } from '../meta';
 import { haptics } from '../utils/haptics';
 import { showToast } from '../components/toast';
@@ -214,6 +215,8 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
           </div>
         </div>
 
+        <div class="SourcesWidget" id="sourcesWidget"></div>
+
         <div class="DefinitionActions">
           <button class="PrimaryBtn IconBtn DefinitionGetSetBtn" id="startCountdown" type="button">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -245,6 +248,7 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
   const addRootMainBtn = addRootSplit.querySelector<HTMLButtonElement>('.AddBlockMain')!;
   const addRootDropdownBtn = root.querySelector<HTMLButtonElement>('#addRootDropdown')!;
   const addRootMenu = root.querySelector<HTMLDivElement>('#addRootMenu')!;
+  const sourcesEl = root.querySelector<HTMLDivElement>('#sourcesWidget')!;
   const startCountdownEl = root.querySelector<HTMLButtonElement>('#startCountdown')!;
   const shareHeaderEl = root.querySelector<HTMLButtonElement>('#shareWorkoutHeader')!;
   const reportParseEl = root.querySelector<HTMLButtonElement>('#reportParse')!;
@@ -1098,6 +1102,13 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
     });
     sourcePreview = def?.source?.preview ?? null;
     planFromApi = def?.timerPlan ?? null;
+
+    mountSourcesWidget({
+      container: sourcesEl,
+      sources: def?.attribution?.sources,
+      maxCollapsedIcons: 3,
+    });
+
     updateWorkoutMeta();
     ensureBlockIds(workoutDefinition.blocks);
     updateSavedSnapshot();

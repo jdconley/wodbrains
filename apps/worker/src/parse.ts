@@ -105,6 +105,96 @@ type ParseMeta = {
 	urlStatuses?: Array<{ retrievedUrl?: string; status?: string }>;
 };
 
+type AttributionSource = { url: string; title?: string };
+type Attribution = { sources: AttributionSource[] };
+
+export const normalizeAttributionUrl = (raw: string): string | null => {
+	try {
+		const u = new URL(raw);
+		if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+		u.hash = '';
+		// Strip common tracking parameters.
+		const dropPrefixes = ['utm_', 'fbclid', 'gclid'];
+		for (const key of Array.from(u.searchParams.keys())) {
+			if (dropPrefixes.some((p) => key.toLowerCase().startsWith(p))) u.searchParams.delete(key);
+		}
+		return u.toString();
+	} catch {
+		return null;
+	}
+};
+
+export const extractAttributionSourcesFromProviderMetadata = (params: {
+	parseProviderMetadata: any;
+	titleProviderMetadata?: any;
+	explicitUrl?: string;
+}): AttributionSource[] => {
+	const ordered: AttributionSource[] = [];
+	const seen = new Set<string>();
+
+	const add = (src: AttributionSource | null) => {
+		if (!src?.url) return;
+		const norm = normalizeAttributionUrl(src.url);
+		if (!norm) return;
+		if (seen.has(norm)) {
+			// Merge title if we already saw the URL.
+			if (src.title) {
+				const existing = ordered.find((s) => normalizeAttributionUrl(s.url) === norm);
+				if (existing && !existing.title) existing.title = src.title;
+			}
+			return;
+		}
+		seen.add(norm);
+		ordered.push({ url: norm, ...(src.title ? { title: src.title } : {}) });
+	};
+
+	if (params.explicitUrl) {
+		const norm = normalizeAttributionUrl(params.explicitUrl);
+		if (norm) add({ url: norm });
+	}
+
+	const metas = [params.parseProviderMetadata, params.titleProviderMetadata].filter(Boolean);
+	for (const meta of metas) {
+		// --- URL Context tool sources ---
+		const urlMetadata = meta?.google?.urlContextMetadata?.urlMetadata;
+		if (Array.isArray(urlMetadata)) {
+			for (const m of urlMetadata) {
+				const retrievedUrl = typeof m?.retrievedUrl === 'string' ? m.retrievedUrl : undefined;
+				const status = typeof m?.urlRetrievalStatus === 'string' ? m.urlRetrievalStatus : undefined;
+				// Prefer sources that were actually retrieved.
+				if (!retrievedUrl) continue;
+				if (status && /fail|error/i.test(status)) continue;
+
+				const title =
+					typeof m?.title === 'string'
+						? m.title
+						: typeof m?.pageTitle === 'string'
+							? m.pageTitle
+							: typeof m?.documentTitle === 'string'
+								? m.documentTitle
+								: undefined;
+				const cleanedTitle = title?.trim() ? title.trim().slice(0, 140) : undefined;
+				add({ url: retrievedUrl, ...(cleanedTitle ? { title: cleanedTitle } : {}) });
+			}
+		}
+
+		// --- Google Search tool grounding sources ---
+		const groundingChunks = meta?.google?.groundingMetadata?.groundingChunks;
+		if (Array.isArray(groundingChunks)) {
+			for (const chunk of groundingChunks) {
+				const web = chunk?.web;
+				const uri = typeof web?.uri === 'string' ? web.uri : undefined;
+				if (!uri) continue;
+				const title = typeof web?.title === 'string' ? web.title : undefined;
+				const cleanedTitle = title?.trim() ? title.trim().slice(0, 140) : undefined;
+				add({ url: uri, ...(cleanedTitle ? { title: cleanedTitle } : {}) });
+			}
+		}
+	}
+
+	return ordered;
+};
+
 export const buildPromptSnapshot = (input: { text?: string; url?: string; hasImage: boolean }): PromptSnapshot => {
 	const system = [
 		'You convert workout descriptions into a structured workout definition.',
@@ -370,6 +460,7 @@ export async function parseWorkout(
 	timerPlan: TimerPlan;
 	assumptions: string[];
 	source: { kind: 'text' | 'url' | 'image'; preview: string };
+	attribution: Attribution | null;
 	meta: ParseMeta;
 }> {
 	const apiKey = env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -593,6 +684,77 @@ export async function parseWorkout(
 	let generatedTitle: string | undefined;
 	let titleRawText: string | undefined;
 	let titleProviderMetadata: any;
+
+	const isVertexGroundingRedirectUrl = (raw: string): boolean => {
+		try {
+			const u = new URL(raw);
+			return u.hostname === 'vertexaisearch.cloud.google.com' && u.pathname.startsWith('/grounding-api-redirect/');
+		} catch {
+			return false;
+		}
+	};
+
+	const resolveVertexGroundingRedirectUrl = async (raw: string): Promise<string | null> => {
+		const norm = normalizeAttributionUrl(raw);
+		if (!norm) return null;
+		if (!isVertexGroundingRedirectUrl(norm)) return norm;
+
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), 5000);
+		try {
+			const res = await fetch(norm, {
+				method: 'GET',
+				redirect: 'follow',
+				headers: { 'user-agent': 'Mozilla/5.0 (compatible; WOD Brains)' },
+				signal: controller.signal,
+			});
+			try {
+				res.body?.cancel?.();
+			} catch {
+				// ignore
+			}
+			const finalUrl = typeof res.url === 'string' ? res.url : '';
+			return normalizeAttributionUrl(finalUrl) ?? norm;
+		} catch {
+			return norm;
+		} finally {
+			clearTimeout(timer);
+		}
+	};
+
+	const resolveAttributionSourceUrls = async (sources: AttributionSource[]): Promise<AttributionSource[]> => {
+		let resolveCount = 0;
+		const resolved: AttributionSource[] = [];
+
+		for (const src of sources) {
+			let nextUrl = src.url;
+			if (resolveCount < 3 && isVertexGroundingRedirectUrl(nextUrl)) {
+				resolveCount += 1;
+				const resolvedUrl = await resolveVertexGroundingRedirectUrl(nextUrl);
+				if (resolvedUrl) nextUrl = resolvedUrl;
+			}
+			resolved.push({ ...src, url: nextUrl });
+		}
+
+		// Re-dedupe after redirect resolution (order-preserving).
+		const ordered: AttributionSource[] = [];
+		const seen = new Set<string>();
+		for (const src of resolved) {
+			const norm = normalizeAttributionUrl(src.url);
+			if (!norm) continue;
+			if (seen.has(norm)) {
+				if (src.title) {
+					const existing = ordered.find((s) => normalizeAttributionUrl(s.url) === norm);
+					if (existing && !existing.title) existing.title = src.title;
+				}
+				continue;
+			}
+			seen.add(norm);
+			ordered.push({ url: norm, ...(src.title ? { title: src.title } : {}) });
+		}
+
+		return ordered;
+	};
 
 	const urlMetadata = providerMetadata?.google?.urlContextMetadata?.urlMetadata;
 	const urlStatuses = Array.isArray(urlMetadata)
@@ -844,6 +1006,14 @@ export async function parseWorkout(
 			? url.slice(0, 300)
 			: (text ?? '').slice(0, 300);
 
+	let sources = extractAttributionSourcesFromProviderMetadata({
+		parseProviderMetadata: providerMetadata,
+		titleProviderMetadata,
+		explicitUrl: url,
+	});
+	sources = await resolveAttributionSourceUrls(sources);
+	const attribution: Attribution | null = sources.length ? { sources } : null;
+
 	const meta: ParseMeta = {
 		promptSnapshot,
 		model: { parseModelId: modelId, titleModelId },
@@ -857,6 +1027,7 @@ export async function parseWorkout(
 		timerPlan,
 		assumptions: result.assumptions ?? [],
 		source: { kind: sourceKind, preview },
+		attribution,
 		meta,
 	};
 }

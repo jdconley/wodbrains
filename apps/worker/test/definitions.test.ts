@@ -15,13 +15,19 @@ async function signInAnonymous(): Promise<string> {
 	return setCookie!.split(';')[0];
 }
 
-async function createDefinition(cookie: string, label: string, title: string) {
+async function createDefinition(
+	cookie: string,
+	label: string,
+	title: string,
+	attribution?: { sources: Array<{ url: string; title?: string }> } | null,
+) {
 	const res = await SELF.fetch('https://example.com/api/definitions', {
 		method: 'POST',
 		headers: { 'content-type': 'application/json', cookie },
 		body: JSON.stringify({
 			workoutDefinition: { id: `def-${label}`, title, blocks: [{ type: 'step', label: 'Push-ups' }] },
 			source: { kind: 'text', preview: `preview-${label}` },
+			...(attribution ? { attribution } : {}),
 		}),
 	});
 	expect(res.status).toBe(200);
@@ -106,7 +112,9 @@ describe('Worker definitions list', () => {
 
 	it('locks timer edits after a run starts and allows copy', async () => {
 		const cookie = await signInAnonymous();
-		const def = await createDefinition(cookie, 'lock', 'Lockable Timer');
+		const def = await createDefinition(cookie, 'lock', 'Lockable Timer', {
+			sources: [{ url: 'https://example.com/lock', title: 'Lock source' }],
+		});
 
 		const firstPatch = await patchWorkoutDefinition(cookie, def.definitionId, 'First Update');
 		expect(firstPatch.status).toBe(200);
@@ -134,7 +142,12 @@ describe('Worker definitions list', () => {
 	it('allows copying definitions from another user', async () => {
 		const ownerCookie = await signInAnonymous();
 		const viewerCookie = await signInAnonymous();
-		const def = await createDefinition(ownerCookie, 'share', 'Shared Timer');
+		const def = await createDefinition(ownerCookie, 'share', 'Shared Timer', {
+			sources: [
+				{ url: 'https://example.com/share', title: 'Share source' },
+				{ url: 'https://www.example.org/another', title: 'Another source' },
+			],
+		});
 
 		const copyRes = await SELF.fetch(`https://example.com/api/definitions/${def.definitionId}/copy`, {
 			method: 'POST',
@@ -187,7 +200,9 @@ describe('Worker definitions list', () => {
 
 	it('stores latest data version on create and copy', async () => {
 		const cookie = await signInAnonymous();
-		const def = await createDefinition(cookie, 'version', 'Versioned Timer');
+		const def = await createDefinition(cookie, 'version', 'Versioned Timer', {
+			sources: [{ url: 'https://example.com/version', title: 'Version source' }],
+		});
 
 		const getRes = await SELF.fetch(`https://example.com/api/definitions/${def.definitionId}`, {
 			headers: { cookie },
@@ -197,10 +212,12 @@ describe('Worker definitions list', () => {
 			dataVersion?: number;
 			workoutDefinition?: { schemaVersion?: number };
 			timerPlan?: { schemaVersion?: number };
+			attribution?: { sources?: Array<{ url?: string; title?: string }> } | null;
 		};
 		expect(getJson.dataVersion).toBe(LATEST_DATA_VERSION);
 		expect(getJson.workoutDefinition?.schemaVersion).toBe(LATEST_DATA_VERSION);
 		expect(getJson.timerPlan?.schemaVersion).toBe(LATEST_DATA_VERSION);
+		expect(getJson.attribution?.sources?.[0]?.url).toBe('https://example.com/version');
 
 		const copyRes = await SELF.fetch(`https://example.com/api/definitions/${def.definitionId}/copy`, {
 			method: 'POST',
@@ -214,7 +231,8 @@ describe('Worker definitions list', () => {
 			headers: { cookie },
 		});
 		expect(copyGet.status).toBe(200);
-		const copyJson = (await copyGet.json()) as { dataVersion?: number };
+		const copyJson = (await copyGet.json()) as { dataVersion?: number; attribution?: any };
 		expect(copyJson.dataVersion).toBe(LATEST_DATA_VERSION);
+		expect(copyJson.attribution?.sources?.[0]?.url).toBe('https://example.com/version');
 	});
 });
