@@ -87,7 +87,7 @@ const buildDefinitionOgHtml = (title: string) => {
 	// more than one child node must explicitly set `display: flex` (or `display: none`).
 	// Avoid full-document markup (`<html><head><body>…`) because the converter may wrap it in a
 	// synthetic `<div>` without computed `display`, causing runtime 500s in production.
-	return `<div class="OgRoot">
+	return `<div class="OgRoot" style="display: flex; flex-direction: column;">
   <style>
     .OgRoot {
       width: ${OG_IMAGE_WIDTH}px;
@@ -142,9 +142,9 @@ const buildDefinitionOgHtml = (title: string) => {
       color: #cfd2e6;
     }
   </style>
-  <div class="Content">
-    <div class="Logo">${LOGO_SVG}</div>
-    <div class="Text">
+  <div class="Content" style="display: flex;">
+    <div class="Logo" style="display: flex;">${LOGO_SVG}</div>
+    <div class="Text" style="display: flex; flex-direction: column;">
       <div class="Brand">WOD Brains</div>
       <div class="Title">${safeTitle}</div>
       <div class="Subtitle">Timer created for this workout.</div>

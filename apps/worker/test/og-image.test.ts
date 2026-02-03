@@ -8,10 +8,15 @@ describe('OG image template', () => {
 		// The HTML-to-react renderer requires any element with multiple children
 		// to explicitly set `display: flex` (or `display: none`).
 		expect(html).not.toMatch(/<div(?![^>]*\bclass=)/i);
-		expect(html).toContain('<div class="OgRoot">');
-		expect(html).toContain('<div class="Content">');
-		expect(html).toContain('<div class="Logo">');
-		expect(html).toContain('<div class="Text">');
+		expect(html).toMatch(/<div class="OgRoot"/);
+		expect(html).toMatch(/<div class="Content"/);
+		expect(html).toMatch(/<div class="Logo"/);
+		expect(html).toMatch(/<div class="Text"/);
+		// Additionally, we include inline display styles so rendering does not depend on CSS parsing.
+		expect(html).toMatch(/class="OgRoot"[^>]*style="[^"]*display:\s*flex/i);
+		expect(html).toMatch(/class="Content"[^>]*style="[^"]*display:\s*flex/i);
+		expect(html).toMatch(/class="Logo"[^>]*style="[^"]*display:\s*flex/i);
+		expect(html).toMatch(/class="Text"[^>]*style="[^"]*display:\s*flex/i);
 		expect(html).toMatch(/\.OgRoot\s*\{[\s\S]*?display:\s*flex\s*;[\s\S]*?\}/);
 		expect(html).toMatch(/\.Content\s*\{[\s\S]*?display:\s*flex\s*;[\s\S]*?\}/);
 		expect(html).toMatch(/\.Logo\s*\{[\s\S]*?display:\s*flex\s*;[\s\S]*?\}/);
