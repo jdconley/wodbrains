@@ -166,7 +166,7 @@ export class RunActor extends DurableObject {
 
 		const nowMonoMs = await this.nowMonoMs();
 		this.broadcast(this.snapshot(run, nowMonoMs));
-		void this.persistClock(nowMonoMs);
+		await this.persistClock(nowMonoMs);
 
 		// Keep emitting presence snapshots while anyone is connected.
 		await this.ctx.storage.setAlarm(Date.now() + this.presenceIntervalMs);
@@ -190,11 +190,11 @@ export class RunActor extends DurableObject {
 			// Send initial snapshot immediately.
 			const nowMonoMs = await this.nowMonoMs();
 			server.send(JSON.stringify({ type: 'snapshot', snapshot: this.snapshot(run, nowMonoMs) }));
-			void this.persistClock(nowMonoMs);
+			await this.persistClock(nowMonoMs);
 			// Broadcast presence update to all clients.
 			this.broadcast(this.snapshot(run, nowMonoMs));
 			// Ensure we keep updating presence even if close events are delayed.
-			void this.ctx.storage.setAlarm(Date.now() + this.presenceIntervalMs);
+			await this.ctx.storage.setAlarm(Date.now() + this.presenceIntervalMs);
 
 			return new Response(null, { status: 101, webSocket: client });
 		}
@@ -221,7 +221,7 @@ export class RunActor extends DurableObject {
 			};
 
 			await this.writeRun(run);
-			void this.persistClock(nowMonoMs);
+			await this.persistClock(nowMonoMs);
 			return json(this.snapshot(run, nowMonoMs));
 		}
 
@@ -229,7 +229,7 @@ export class RunActor extends DurableObject {
 			const run = await this.readRun();
 			if (!run) return new Response('Run not initialized', { status: 404 });
 			const nowMonoMs = await this.nowMonoMs();
-			void this.persistClock(nowMonoMs);
+			await this.persistClock(nowMonoMs);
 			return json(this.snapshot(run, nowMonoMs));
 		}
 
@@ -250,7 +250,7 @@ export class RunActor extends DurableObject {
 
 			const snap = this.snapshot(run, nowMonoMs);
 			this.broadcast(snap);
-			void this.persistClock(nowMonoMs);
+			await this.persistClock(nowMonoMs);
 			return json(snap);
 		}
 
@@ -271,7 +271,7 @@ export class RunActor extends DurableObject {
 
 			const snap = this.snapshot(run, nowMonoMs);
 			this.broadcast(snap);
-			void this.persistClock(nowMonoMs);
+			await this.persistClock(nowMonoMs);
 
 			return json(snap);
 		}
@@ -301,7 +301,7 @@ export class RunActor extends DurableObject {
 		if (!run) return;
 		const nowMonoMs = await this.nowMonoMs();
 		this.broadcast(this.snapshot(run, nowMonoMs));
-		void this.persistClock(nowMonoMs);
+		await this.persistClock(nowMonoMs);
 	}
 
 	webSocketError(_ws: WebSocket, _err: unknown) {
