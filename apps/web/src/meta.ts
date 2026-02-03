@@ -3,6 +3,7 @@ const DEFAULT_TITLE = 'WOD Brains magically builds a smart timer from any workou
 const DEFAULT_DESCRIPTION =
   'WOD Brains magically builds a smart timer from any workout. Paste a workout, drop a screenshot, or share a URL.';
 const DEFAULT_OG_IMAGE = `${DEFAULT_SITE_URL}/og-image.jpg`;
+const SITE_NAME = 'WOD Brains';
 
 type MetaOptions = {
   title?: string;
@@ -55,4 +56,22 @@ export const updateMeta = (opts: MetaOptions = {}) => {
   setMeta('name', 'twitter:description', description);
   setMeta('name', 'twitter:image', image);
   setCanonical(url);
+};
+
+export const cleanTitlePart = (value?: string | null): string | null => {
+  const raw = typeof value === 'string' ? value : '';
+  const trimmed = raw.replace(/\r\n/g, '\n').trim();
+  if (!trimmed) return null;
+  const firstLine = (trimmed.split('\n')[0] ?? '').trim();
+  if (!firstLine) return null;
+  const singleSpaced = firstLine.replace(/\s+/g, ' ');
+  return singleSpaced || null;
+};
+
+export const formatSiteTitle = (pageTitle?: string | null): string => {
+  const cleaned = cleanTitlePart(pageTitle);
+  if (!cleaned) return DEFAULT_TITLE;
+  // If the pageTitle already contains the brand, avoid duplicating it.
+  if (cleaned.toLowerCase().includes(SITE_NAME.toLowerCase())) return cleaned;
+  return `${cleaned} - ${SITE_NAME}`;
 };

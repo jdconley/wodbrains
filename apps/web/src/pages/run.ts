@@ -25,7 +25,7 @@ import {
   setAppHeaderTitle,
   setAppHeaderVisible,
 } from '../components/header';
-import { updateMeta } from '../meta';
+import { formatSiteTitle, updateMeta } from '../meta';
 import { haptics } from '../utils/haptics';
 import { initSounds, sounds } from '../utils/sound';
 import { showToast } from '../components/toast';
@@ -734,7 +734,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     }
 
     const planTitle = timerPlan?.title?.trim();
-    const metaTitle = planTitle ? `${planTitle} - WOD Brains` : 'Workout Run - WOD Brains';
+    const metaTitle = planTitle ? formatSiteTitle(planTitle) : formatSiteTitle('Workout Run');
     if (metaTitle !== lastMetaTitle) {
       lastMetaTitle = metaTitle;
       updateMeta({

@@ -17,7 +17,7 @@ import {
 } from '../api';
 import { getRoute, navigate } from '../router';
 import { appHeader, setupAppHeader } from '../components/header';
-import { updateMeta } from '../meta';
+import { cleanTitlePart, formatSiteTitle, updateMeta } from '../meta';
 import { haptics } from '../utils/haptics';
 import { showToast } from '../components/toast';
 
@@ -129,6 +129,17 @@ const createBlock = (type: string): WorkoutBlock => {
   }
 };
 
+const resolveWorkoutTitleForMeta = (opts: {
+  explicitTitle?: string | null;
+  derivedTitle?: string | null;
+}): string => {
+  const explicit = cleanTitlePart(opts.explicitTitle);
+  if (explicit) return explicit;
+  const derived = cleanTitlePart(opts.derivedTitle);
+  if (derived && derived.toLowerCase() !== 'workout') return derived;
+  return 'Workout';
+};
+
 const getParentAtPath = (rootBlocks: WorkoutBlock[], path: number[]) => {
   let blocks = rootBlocks;
   for (let i = 0; i < path.length - 1; i += 1) {
@@ -157,7 +168,7 @@ const getBlocksAtPath = (rootBlocks: WorkoutBlock[], path: number[]): WorkoutBlo
 
 export async function renderTimerEditPage(root: HTMLElement, definitionId: string) {
   updateMeta({
-    title: 'Workout - WOD Brains',
+    title: formatSiteTitle('Workout'),
     description: 'Edit your workout timer details in WOD Brains.',
     url: new URL(`/w/${encodeURIComponent(definitionId)}`, window.location.origin).toString(),
   });
@@ -252,6 +263,9 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
   let savedSnapshot: string | null = null;
   let autosaveTimer: number | null = null;
   let autosaveInFlight: Promise<void> | null = null;
+  let lastMetaKey = '';
+  let sourcePreview: string | null = null;
+  let planFromApi: unknown = null;
 
   const openFeedbackDialog = () => {
     if (!activeDefinitionId) return;
@@ -436,6 +450,34 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
     });
   };
 
+  const updateWorkoutMeta = () => {
+    const explicitTitle = cleanTitlePart(titleEl.value);
+    const derivedTitle =
+      workoutDefinition != null
+        ? buildTimerDescription(workoutDefinition, planFromApi as any).title
+        : null;
+    const resolvedTitle = resolveWorkoutTitleForMeta({ explicitTitle, derivedTitle });
+    const url = new URL(
+      `/w/${encodeURIComponent(activeDefinitionId)}`,
+      window.location.origin,
+    ).toString();
+    const description =
+      cleanTitlePart(sourcePreview) ||
+      (explicitTitle
+        ? `Run ${explicitTitle} with WOD Brains.`
+        : resolvedTitle.toLowerCase() !== 'workout'
+          ? `Run ${resolvedTitle} with WOD Brains.`
+          : 'Run this workout timer on WOD Brains.');
+    const key = `${resolvedTitle}|${description}|${url}`;
+    if (key === lastMetaKey) return;
+    lastMetaKey = key;
+    updateMeta({
+      title: formatSiteTitle(resolvedTitle),
+      description,
+      url,
+    });
+  };
+
   const shareWorkoutLink = async () => {
     if (!workoutDefinition) return;
     await flushAutosave({ navigateOnClone: false });
@@ -445,7 +487,11 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
       `/w/${encodeURIComponent(activeDefinitionId)}`,
       window.location.origin,
     ).toString();
-    const title = description.title?.trim() ? `WOD Brains · ${description.title}` : 'WOD Brains';
+    const shareBase = resolveWorkoutTitleForMeta({
+      explicitTitle: cleanTitlePart(titleEl.value),
+      derivedTitle: description.title,
+    });
+    const title = shareBase ? `WOD Brains · ${shareBase}` : 'WOD Brains';
     const text = 'Workout at the same time with friends. Start this workout on WOD Brains.';
     try {
       if (navigator.share) {
@@ -474,6 +520,7 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
       ensureBlockIds(workoutDefinition.blocks);
       await patchDefinitionWorkoutDefinition(activeDefinitionId, workoutDefinition);
       updateSavedSnapshot();
+      updateWorkoutMeta();
       if (opts.showSuccessToast) showToast('Saved', 'ok');
       return { definitionId: activeDefinitionId, workoutDefinition };
     } catch (e) {
@@ -492,6 +539,7 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
           workoutDefinition.id = copiedWorkoutDefinition.id;
           await patchDefinitionWorkoutDefinition(newDefinitionId, workoutDefinition);
           updateSavedSnapshot();
+          updateWorkoutMeta();
           if (opts.showSuccessToast) showToast('Saved as a copy', 'ok');
           if (opts.navigateOnClone !== false) {
             navigate(`/w/${encodeURIComponent(newDefinitionId)}`);
@@ -1055,25 +1103,11 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
     titleEl.value = workoutDefinition.title ?? '';
     titleEl.addEventListener('input', () => {
       markChanged();
+      updateWorkoutMeta();
     });
-    const planFromApi = def?.timerPlan;
-    const compiledPlan = compileWorkoutDefinition(workoutDefinition);
-    const description = buildTimerDescription(workoutDefinition, compiledPlan ?? planFromApi);
-    const metaTitle = description.title?.trim()
-      ? `${description.title} - WOD Brains`
-      : 'Workout - WOD Brains';
-    updateMeta({
-      title: metaTitle,
-      description:
-        def?.source?.preview?.trim() ||
-        (description.title
-          ? `Run ${description.title} with WOD Brains.`
-          : 'Run this workout timer on WOD Brains.'),
-      url: new URL(
-        `/w/${encodeURIComponent(activeDefinitionId)}`,
-        window.location.origin,
-      ).toString(),
-    });
+    sourcePreview = def?.source?.preview ?? null;
+    planFromApi = def?.timerPlan ?? null;
+    updateWorkoutMeta();
     ensureBlockIds(workoutDefinition.blocks);
     updateSavedSnapshot();
     renderTree();

@@ -1893,7 +1893,7 @@ export function createApp() {
 			ogImageKey: row.ogImageKey,
 			updatedAt: row.updatedAt,
 		});
-		const title = planTitle ? `${planTitle} - WOD Brains` : DEFAULT_TITLE;
+		const title = planTitle ? `${planTitle} - WOD Brains` : 'Workout - WOD Brains';
 		const description = formatMetaDescription({ preview: row.sourcePreview, title: planTitle });
 		const url = `${DEFAULT_SITE_URL}/w/${definitionId}`;
 

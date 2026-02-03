@@ -15,6 +15,7 @@ test.describe('workout builder', () => {
     await expect(page).toHaveURL(/\/w\//);
 
     await expect(page.locator('[data-testid="builder-tree"]')).toBeVisible();
+    await expect(page.locator('[data-testid="builder-node"]').first()).toBeVisible();
     // Header icons should align to the same content inset edge as the page content.
     const content = page.locator('.PageContent');
     const contentBox = await content.boundingBox();
@@ -58,6 +59,7 @@ test.describe('workout builder', () => {
     expect(Math.abs(getSetLeft - contentInsetLeftX)).toBeLessThanOrEqual(1);
     expect(Math.abs(getSetRight - contentInsetRightX)).toBeLessThanOrEqual(1);
     await page.locator('#workoutTitle').fill('Builder test');
+    await expect(page).toHaveTitle('Builder test - WOD Brains');
 
     // Add an AMRAP section at root
     await page.locator('#addRootDropdown').click();
