@@ -83,73 +83,74 @@ const escapeHtml = (value: string) =>
 
 const buildDefinitionOgHtml = (title: string) => {
 	const safeTitle = escapeHtml(normalizeTitle(title));
-	return `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <style>
-      html, body { margin: 0; width: ${OG_IMAGE_WIDTH}px; height: ${OG_IMAGE_HEIGHT}px; }
-      body {
-        background:
-          radial-gradient(600px 520px at 12% 15%, rgba(255, 16, 240, 0.28), transparent 60%),
-          radial-gradient(680px 520px at 88% 70%, rgba(46, 229, 157, 0.18), transparent 60%),
-          #0b1020;
-        color: #fff;
-        font-family: "Inter", "Rubik", system-ui, -apple-system, sans-serif;
-      }
-      .Content {
-        height: 100%;
-        display: flex;
-        align-items: center;
-        gap: 70px;
-        padding: 60px 80px;
-      }
-      .Logo {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 260px;
-        height: 260px;
-        filter: drop-shadow(0 26px 60px rgba(0, 0, 0, 0.45));
-        flex: 0 0 auto;
-      }
-      .Logo svg { width: 100%; height: 100%; }
-      .Text {
-        display: flex;
-        flex-direction: column;
-      }
-      .Brand {
-        letter-spacing: 0.32em;
-        text-transform: uppercase;
-        color: #ff10f0;
-        font-weight: 700;
-        font-size: 26px;
-      }
-      .Title {
-        font-size: 70px;
-        line-height: 1.05;
-        margin: 26px 0 18px;
-        font-weight: 800;
-      }
-      .Subtitle {
-        font-size: 30px;
-        line-height: 1.2;
-        margin: 0;
-        color: #cfd2e6;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="Content">
-      <div class="Logo">${LOGO_SVG}</div>
-      <div class="Text">
-        <div class="Brand">WOD Brains</div>
-        <div class="Title">${safeTitle}</div>
-        <div class="Subtitle">Timer created for this workout.</div>
-      </div>
+	// NOTE: `@cf-wasm/og/html-to-react` is strict about multi-child containers: any element with
+	// more than one child node must explicitly set `display: flex` (or `display: none`).
+	// Avoid full-document markup (`<html><head><body>…`) because the converter may wrap it in a
+	// synthetic `<div>` without computed `display`, causing runtime 500s in production.
+	return `<div class="OgRoot">
+  <style>
+    .OgRoot {
+      width: ${OG_IMAGE_WIDTH}px;
+      height: ${OG_IMAGE_HEIGHT}px;
+      display: flex;
+      flex-direction: column;
+      background:
+        radial-gradient(600px 520px at 12% 15%, rgba(255, 16, 240, 0.28), transparent 60%),
+        radial-gradient(680px 520px at 88% 70%, rgba(46, 229, 157, 0.18), transparent 60%),
+        #0b1020;
+      color: #fff;
+      font-family: "Inter", "Rubik", system-ui, -apple-system, sans-serif;
+    }
+    .Content {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      gap: 70px;
+      padding: 60px 80px;
+    }
+    .Logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 260px;
+      height: 260px;
+      filter: drop-shadow(0 26px 60px rgba(0, 0, 0, 0.45));
+      flex: 0 0 auto;
+    }
+    .Logo svg { width: 100%; height: 100%; }
+    .Text {
+      display: flex;
+      flex-direction: column;
+    }
+    .Brand {
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: #ff10f0;
+      font-weight: 700;
+      font-size: 26px;
+    }
+    .Title {
+      font-size: 70px;
+      line-height: 1.05;
+      margin: 26px 0 18px;
+      font-weight: 800;
+    }
+    .Subtitle {
+      font-size: 30px;
+      line-height: 1.2;
+      margin: 0;
+      color: #cfd2e6;
+    }
+  </style>
+  <div class="Content">
+    <div class="Logo">${LOGO_SVG}</div>
+    <div class="Text">
+      <div class="Brand">WOD Brains</div>
+      <div class="Title">${safeTitle}</div>
+      <div class="Subtitle">Timer created for this workout.</div>
     </div>
-  </body>
-</html>`;
+  </div>
+</div>`;
 };
 
 export const __testing = {

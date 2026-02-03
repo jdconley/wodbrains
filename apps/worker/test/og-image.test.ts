@@ -8,12 +8,20 @@ describe('OG image template', () => {
 		// The HTML-to-react renderer requires any element with multiple children
 		// to explicitly set `display: flex` (or `display: none`).
 		expect(html).not.toMatch(/<div(?![^>]*\bclass=)/i);
+		expect(html).toContain('<div class="OgRoot">');
 		expect(html).toContain('<div class="Content">');
 		expect(html).toContain('<div class="Logo">');
 		expect(html).toContain('<div class="Text">');
+		expect(html).toMatch(/\.OgRoot\s*\{[\s\S]*?display:\s*flex\s*;[\s\S]*?\}/);
 		expect(html).toMatch(/\.Content\s*\{[\s\S]*?display:\s*flex\s*;[\s\S]*?\}/);
 		expect(html).toMatch(/\.Logo\s*\{[\s\S]*?display:\s*flex\s*;[\s\S]*?\}/);
 		expect(html).toMatch(/\.Text\s*\{[\s\S]*?display:\s*flex\s*;[\s\S]*?\}/);
 		expect(html).toMatch(/\.Text\s*\{[\s\S]*?flex-direction:\s*column\s*;[\s\S]*?\}/);
+	});
+
+	it('is accepted by the HTML-to-react renderer', async () => {
+		const html = __testing.buildDefinitionOgHtml('Test Workout Title');
+		const { t } = await import('@cf-wasm/og/html-to-react');
+		expect(() => t(html)).not.toThrow();
 	});
 });
