@@ -1847,7 +1847,12 @@ export function createApp() {
 			const headers = new Headers();
 			existing.writeHttpMetadata(headers);
 			headers.set('cache-control', OG_IMAGE_CACHE_CONTROL);
-			headers.set('content-type', headers.get('content-type') ?? OG_IMAGE_CONTENT_TYPE);
+			// Always force the correct content-type for `.png` routes.
+			// Some older objects may have been written with incorrect metadata, which makes browsers render
+			// binary PNG bytes as text (“gibberish”).
+			headers.set('content-type', OG_IMAGE_CONTENT_TYPE);
+			headers.set('x-content-type-options', 'nosniff');
+			headers.set('content-disposition', `inline; filename="${ogImageKey}.png"`);
 			return new Response(existing.body, { headers });
 		}
 
@@ -1875,6 +1880,8 @@ export function createApp() {
 			headers: {
 				'content-type': OG_IMAGE_CONTENT_TYPE,
 				'cache-control': OG_IMAGE_CACHE_CONTROL,
+				'x-content-type-options': 'nosniff',
+				'content-disposition': `inline; filename="${ogImageKey}.png"`,
 			},
 		});
 	});
