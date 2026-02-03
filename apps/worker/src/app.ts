@@ -10,6 +10,7 @@ import { fetchImageAsFile } from './fetch-image';
 import {
 	OG_IMAGE_CACHE_CONTROL,
 	OG_IMAGE_CONTENT_TYPE,
+	OG_IMAGE_RENDER_VERSION,
 	buildDefinitionOgKey,
 	buildDefinitionOgObjectKey,
 	generateAndStoreDefinitionOgImage,
@@ -1844,6 +1845,41 @@ export function createApp() {
 		const objectKey = buildDefinitionOgObjectKey(ogImageKey);
 		const existing = await c.env.OG_IMAGES.get(objectKey);
 		if (existing) {
+			const existingVersion = existing.customMetadata?.ogRenderVersion ?? null;
+			if (existingVersion !== OG_IMAGE_RENDER_VERSION) {
+				if (!c.executionCtx) {
+					return c.text('execution_context_missing', 500);
+				}
+
+				const planTitle = getPlanTitle(row.timerPlanJson);
+				const bytes = await renderDefinitionOgPng({
+					title: planTitle,
+					ctx: c.executionCtx,
+					useStub: c.env.STUB_OG === '1',
+				});
+
+				c.executionCtx.waitUntil(
+					c.env.OG_IMAGES.put(objectKey, bytes, {
+						httpMetadata: {
+							contentType: OG_IMAGE_CONTENT_TYPE,
+							cacheControl: OG_IMAGE_CACHE_CONTROL,
+						},
+						customMetadata: {
+							ogRenderVersion: OG_IMAGE_RENDER_VERSION,
+						},
+					}),
+				);
+
+				return new Response(bytes, {
+					headers: {
+						'content-type': OG_IMAGE_CONTENT_TYPE,
+						'cache-control': OG_IMAGE_CACHE_CONTROL,
+						'x-content-type-options': 'nosniff',
+						'content-disposition': `inline; filename="${ogImageKey}.png"`,
+					},
+				});
+			}
+
 			const headers = new Headers();
 			existing.writeHttpMetadata(headers);
 			headers.set('cache-control', OG_IMAGE_CACHE_CONTROL);
@@ -1872,6 +1908,9 @@ export function createApp() {
 				httpMetadata: {
 					contentType: OG_IMAGE_CONTENT_TYPE,
 					cacheControl: OG_IMAGE_CACHE_CONTROL,
+				},
+				customMetadata: {
+					ogRenderVersion: OG_IMAGE_RENDER_VERSION,
 				},
 			}),
 		);

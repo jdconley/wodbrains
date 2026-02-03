@@ -5,12 +5,13 @@ export const OG_IMAGE_HEIGHT = 630;
 export const OG_IMAGE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 export const OG_IMAGE_CONTENT_TYPE = 'image/png';
 export const OG_IMAGE_PREFIX = 'wb_og_def_v1';
+export const OG_IMAGE_RENDER_VERSION = '2';
 
 const DEFAULT_TITLE = 'Workout Timer';
 const MAX_TITLE_LENGTH = 70;
 const STUB_PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAA3X5yUAAAAASUVORK5CYII=';
 
-const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%" fill="none">
   <!-- Left flexing arm -->
   <path d="M18 58 Q8 54 10 44 Q12 36 20 38 L24 46 Q22 50 24 54 Z" fill="#F5A9B8"/>
   <!-- Left bicep bulge -->
@@ -87,67 +88,47 @@ const buildDefinitionOgHtml = (title: string) => {
 	// more than one child node must explicitly set `display: flex` (or `display: none`).
 	// Avoid full-document markup (`<html><head><body>…`) because the converter may wrap it in a
 	// synthetic `<div>` without computed `display`, causing runtime 500s in production.
-	return `<div class="OgRoot" style="display: flex; flex-direction: column;">
-  <style>
-    .OgRoot {
-      width: ${OG_IMAGE_WIDTH}px;
-      height: ${OG_IMAGE_HEIGHT}px;
-      display: flex;
-      flex-direction: column;
-      background:
-        radial-gradient(600px 520px at 12% 15%, rgba(255, 16, 240, 0.28), transparent 60%),
-        radial-gradient(680px 520px at 88% 70%, rgba(46, 229, 157, 0.18), transparent 60%),
-        #0b1020;
-      color: #fff;
-      font-family: "Inter", "Rubik", system-ui, -apple-system, sans-serif;
-    }
-    .Content {
-      height: 100%;
-      display: flex;
-      align-items: center;
-      gap: 70px;
-      padding: 60px 80px;
-    }
-    .Logo {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 260px;
-      height: 260px;
-      filter: drop-shadow(0 26px 60px rgba(0, 0, 0, 0.45));
-      flex: 0 0 auto;
-    }
-    .Logo svg { width: 100%; height: 100%; }
-    .Text {
-      display: flex;
-      flex-direction: column;
-    }
-    .Brand {
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      color: #ff10f0;
-      font-weight: 700;
-      font-size: 26px;
-    }
-    .Title {
-      font-size: 70px;
-      line-height: 1.05;
-      margin: 26px 0 18px;
-      font-weight: 800;
-    }
-    .Subtitle {
-      font-size: 30px;
-      line-height: 1.2;
-      margin: 0;
-      color: #cfd2e6;
-    }
-  </style>
-  <div class="Content" style="display: flex;">
-    <div class="Logo" style="display: flex;">${LOGO_SVG}</div>
-    <div class="Text" style="display: flex; flex-direction: column;">
-      <div class="Brand">WOD Brains</div>
-      <div class="Title">${safeTitle}</div>
-      <div class="Subtitle">Timer created for this workout.</div>
+	//
+	// Additionally: style tag + class CSS has proven unreliable in production renders.
+	// Inline all critical styles so the output is correct even if CSS parsing is skipped.
+	const rootStyle = [
+		`width: ${OG_IMAGE_WIDTH}px`,
+		`height: ${OG_IMAGE_HEIGHT}px`,
+		`display: flex`,
+		`flex-direction: column`,
+		`background-color: #0b1020`,
+		`background-image: radial-gradient(600px 520px at 12% 15%, rgba(255, 16, 240, 0.28), transparent 60%), radial-gradient(680px 520px at 88% 70%, rgba(46, 229, 157, 0.18), transparent 60%)`,
+		`background-repeat: no-repeat`,
+		`color: #fff`,
+		`font-family: Inter, Rubik, system-ui, -apple-system, sans-serif`,
+	].join('; ');
+
+	const contentStyle = [`height: 100%`, `display: flex`, `align-items: center`, `gap: 70px`, `padding: 60px 80px`].join('; ');
+
+	const logoStyle = [
+		`display: flex`,
+		`align-items: center`,
+		`justify-content: center`,
+		`width: 260px`,
+		`height: 260px`,
+		`filter: drop-shadow(0 26px 60px rgba(0, 0, 0, 0.45))`,
+		`flex: 0 0 auto`,
+	].join('; ');
+
+	const textStyle = [`display: flex`, `flex-direction: column`].join('; ');
+	const brandStyle = [`letter-spacing: 0.32em`, `text-transform: uppercase`, `color: #ff10f0`, `font-weight: 700`, `font-size: 26px`].join(
+		'; ',
+	);
+	const titleStyle = [`font-size: 70px`, `line-height: 1.05`, `margin: 26px 0 18px`, `font-weight: 800`].join('; ');
+	const subtitleStyle = [`font-size: 30px`, `line-height: 1.2`, `margin: 0`, `color: #cfd2e6`].join('; ');
+
+	return `<div style="${rootStyle}">
+  <div style="${contentStyle}">
+    <div style="${logoStyle}">${LOGO_SVG}</div>
+    <div style="${textStyle}">
+      <div style="${brandStyle}">WOD Brains</div>
+      <div style="${titleStyle}">${safeTitle}</div>
+      <div style="${subtitleStyle}">Timer created for this workout.</div>
     </div>
   </div>
 </div>`;
@@ -197,7 +178,8 @@ export async function generateAndStoreDefinitionOgImage(params: {
 
 	const existing = await params.env.OG_IMAGES.head(objectKey);
 
-	if (existing) return;
+	const existingVersion = existing?.customMetadata?.ogRenderVersion ?? null;
+	if (existing && existingVersion === OG_IMAGE_RENDER_VERSION) return;
 	const bytes = await renderDefinitionOgPng({
 		title: params.title,
 		ctx: params.ctx,
@@ -207,6 +189,9 @@ export async function generateAndStoreDefinitionOgImage(params: {
 		httpMetadata: {
 			contentType: OG_IMAGE_CONTENT_TYPE,
 			cacheControl: OG_IMAGE_CACHE_CONTROL,
+		},
+		customMetadata: {
+			ogRenderVersion: OG_IMAGE_RENDER_VERSION,
 		},
 	});
 }
