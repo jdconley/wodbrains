@@ -83,6 +83,12 @@ export const sanitizeWorkoutTitle = (value: unknown): string | undefined => {
 export const selectWorkoutTitle = (parsedTitle: unknown, generatedTitle: unknown): string =>
 	sanitizeWorkoutTitle(parsedTitle) ?? sanitizeWorkoutTitle(generatedTitle) ?? DEFAULT_WORKOUT_TITLE;
 
+export const hasHttpUrlInText = (value: unknown): boolean => {
+	if (typeof value !== 'string') return false;
+	// Keep this intentionally simple: only detect explicit http(s) URLs.
+	return /\bhttps?:\/\/\S+/i.test(value);
+};
+
 type PromptSnapshot = {
 	parseSystem: string;
 	parseUser: string;
@@ -102,7 +108,7 @@ type ParseMeta = {
 export const buildPromptSnapshot = (input: { text?: string; url?: string; hasImage: boolean }): PromptSnapshot => {
 	const system = [
 		'You convert workout descriptions into a structured workout definition.',
-		'IMPORTANT: If a workout URL is provided, you must use the URL Context tool to read it before answering.',
+		'IMPORTANT: If any workout URL is present in the inputs (or found via Google Search), you must use the URL Context tool to read it before answering.',
 		'If the input is a workout name or a web search query (e.g. "crossfit cindy", "crossfit workout of the day today"), use the Google Search tool to find the workout before answering.',
 		'Do not guess or use prior knowledge. Only use information that is present in the provided inputs, retrieved via URL Context, or retrieved via Google Search.',
 		'Return a JSON object that matches the provided schema.',
@@ -196,8 +202,9 @@ export const buildPromptSnapshot = (input: { text?: string; url?: string; hasIma
 
 	const titleSystem = [
 		'You generate a workout title from the provided inputs.',
-		'IMPORTANT: If a workout URL is provided, you must use the URL Context tool to read it before answering.',
-		'Do not guess or use prior knowledge. Only use information that is present in the provided inputs or retrieved via URL Context.',
+		'You may use the Google Search tool and the URL Context tool.',
+		'IMPORTANT: If any workout URL is present in the inputs (or found via Google Search), you must use the URL Context tool to read it before answering.',
+		'Do not guess or use prior knowledge. Only use information that is present in the provided inputs, retrieved via URL Context, or retrieved via Google Search.',
 		'If an explicit workout name or page title exists, use it.',
 		'Otherwise, generate a short, playful title using analogy or metaphor.',
 		'Keep it concise (about 3-8 words), PG, and without emojis.',
@@ -212,7 +219,7 @@ export const buildPromptSnapshot = (input: { text?: string; url?: string; hasIma
 	}
 
 	const parseUser = [
-		'Use URL Context for any URLs in the input or embedded in text.',
+		'Use URL Context for any URLs in the input, embedded in text, or found via Google Search.',
 		'If the input is a workout name or a web search query (not a full workout), use the Google Search tool to find the workout details before answering.',
 		'Extract the workout definition from the inputs and return it as workoutDefinition.',
 		'If the URL content includes multiple workout variants (e.g. scaled/intermediate/beginner), choose the main/Rx version.',
@@ -221,7 +228,8 @@ export const buildPromptSnapshot = (input: { text?: string; url?: string; hasIma
 	].join('\\n');
 
 	const titleUser = [
-		'Use URL Context for any URLs in the input or embedded in text.',
+		'Use URL Context for any URLs in the input, embedded in text, or found via Google Search.',
+		'If you need to look up a workout based on a short name/query, use the Google Search tool before answering.',
 		'Generate a workout title from the inputs and return it as { "title": "..." }.',
 		'',
 		...inputSections,
@@ -384,6 +392,8 @@ export async function parseWorkout(
 		throw new Error('No input provided');
 	}
 
+	const hasAnyUrl = !!url || hasHttpUrlInText(text);
+
 	const requestId = opts?.requestId;
 	console.info('[worker] parseWorkout start', {
 		requestId,
@@ -447,16 +457,16 @@ export async function parseWorkout(
 		providerMetadata?: any;
 	}> => {
 		try {
+			const titleTools = {
+				google_search: google.tools.googleSearch({ mode: 'MODE_DYNAMIC', dynamicThreshold: 0.7 }),
+				url_context: google.tools.urlContext({}),
+			};
 			const result = await generateText({
 				model: titleModel,
 				system: promptSnapshot.titleSystem,
-				...(url
-					? {
-							tools: { url_context: google.tools.urlContext({}) },
-							toolChoice: { type: 'tool', toolName: 'url_context' } as const,
-						}
-					: {}),
-				stopWhen: stepCountIs(4),
+				tools: titleTools,
+				...(hasAnyUrl ? { toolChoice: { type: 'tool', toolName: 'url_context' } as const } : {}),
+				stopWhen: stepCountIs(6),
 				providerOptions: {
 					google: {
 						thinkingConfig: {
@@ -514,7 +524,7 @@ export async function parseWorkout(
 
 				const parseTools = {
 					google_search: google.tools.googleSearch({ mode: 'MODE_DYNAMIC', dynamicThreshold: 0.7 }),
-					...(url ? { url_context: google.tools.urlContext({}) } : {}),
+					url_context: google.tools.urlContext({}),
 				};
 
 				// Always request plain text and JSON-parse it ourselves.
@@ -523,7 +533,7 @@ export async function parseWorkout(
 					model,
 					system: promptSnapshot.parseSystem,
 					tools: parseTools,
-					...(url ? { toolChoice: { type: 'tool', toolName: 'url_context' } as const } : {}),
+					...(hasAnyUrl ? { toolChoice: { type: 'tool', toolName: 'url_context' } as const } : {}),
 					stopWhen: stepCountIs(8),
 					providerOptions: {
 						...baseProviderOptions,
@@ -578,16 +588,11 @@ export async function parseWorkout(
 		return { output, providerMetadata, rawModelText: rawText };
 	})();
 
-	const [parseOutcome, titleOutcome] = await Promise.allSettled([parsePromise, generateWorkoutTitle()]);
-	if (parseOutcome.status === 'rejected') {
-		throw parseOutcome.reason;
-	}
-	const { output, providerMetadata, rawModelText: parseRawModelText } = parseOutcome.value;
+	const { output, providerMetadata, rawModelText: parseRawModelText } = await parsePromise;
 	const rawModelText = parseRawModelText;
-	const titleResult = titleOutcome.status === 'fulfilled' ? titleOutcome.value : { title: undefined, rawText: undefined };
-	const generatedTitle = titleResult.title;
-	const titleRawText = titleResult.rawText;
-	const titleProviderMetadata = titleResult.providerMetadata;
+	let generatedTitle: string | undefined;
+	let titleRawText: string | undefined;
+	let titleProviderMetadata: any;
 
 	const urlMetadata = providerMetadata?.google?.urlContextMetadata?.urlMetadata;
 	const urlStatuses = Array.isArray(urlMetadata)
@@ -601,7 +606,7 @@ export async function parseWorkout(
 
 	console.info('[worker] url context metadata', { requestId, urlStatuses });
 
-	if (url) {
+	if (hasAnyUrl) {
 		const hasSuccess = urlStatuses.some((s: any) => typeof s.status === 'string' && s.status.includes('SUCCESS'));
 		if (!hasSuccess) {
 			const err: any = new Error('Could not retrieve the workout URL. Please try again or paste the workout text.');
@@ -640,6 +645,12 @@ export async function parseWorkout(
 
 	const result = coerceParseResult(output);
 	const parsed = result.workoutDefinition;
+	if (!sanitizeWorkoutTitle(parsed.title)) {
+		const titleResult = await generateWorkoutTitle();
+		generatedTitle = titleResult.title;
+		titleRawText = titleResult.rawText;
+		titleProviderMetadata = titleResult.providerMetadata;
+	}
 	const resolvedTitle = selectWorkoutTitle(parsed.title, generatedTitle);
 	console.info('[worker] parsed workoutDefinition', {
 		requestId,
