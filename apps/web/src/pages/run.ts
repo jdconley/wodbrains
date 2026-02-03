@@ -29,6 +29,7 @@ import { formatSiteTitle, updateMeta } from '../meta';
 import { haptics } from '../utils/haptics';
 import { initSounds, sounds } from '../utils/sound';
 import { showToast } from '../components/toast';
+import { requireLegalConsent } from '../components/legal-consent';
 
 type RunSnapshot = {
   runId: string;
@@ -1517,6 +1518,14 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   window.addEventListener('online', () => {
     void flushPending();
   });
+
+  try {
+    await requireLegalConsent({ context: 'run' });
+  } catch {
+    navigate('/');
+    showToast('Accept Terms & Privacy to view a run.', 'error');
+    return;
+  }
 
   // --- Load initial state ---
   setStatus('Loading...', 'muted');

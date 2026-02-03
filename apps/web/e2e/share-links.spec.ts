@@ -1,7 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { expectPillLabelButton, expectPillLabelButtonFlatOnHover } from './helpers/button-styles';
+import { seedLegalAcceptance } from './helpers/legal';
+import { startRunFromDefinition } from './helpers/run';
 
 test.describe('Share links', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedLegalAcceptance(page);
+  });
+
   test('definition share uses Web Share API', async ({ page }) => {
     // Use mobile viewport to access the header share button (MobileOnly element)
     await page.setViewportSize({ width: 390, height: 844 });
@@ -37,8 +43,7 @@ test.describe('Share links', () => {
     await page.locator('#generate').click();
     await expect(page).toHaveURL(/\/w\//);
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
+    await startRunFromDefinition(page);
     const shareBtn = page.locator('#startShareBtn');
     await expect(shareBtn).toBeVisible();
     await expectPillLabelButton(shareBtn);

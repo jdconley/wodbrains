@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { LATEST_DATA_VERSION } from '@wodbrains/core';
 import { fastStartRun } from './helpers/run';
+import { seedLegalAcceptance } from './helpers/legal';
 
 const parseTimerMs = (value: string): number => {
   const text = value.trim();
@@ -18,6 +19,10 @@ const readTimerMs = async (page: Page) => {
   const text = (await page.locator('#timerValue').textContent()) ?? '0:00.0';
   return parseTimerMs(text);
 };
+
+test.beforeEach(async ({ page }) => {
+  await seedLegalAcceptance(page);
+});
 
 test('break overlay advances to next segment', async ({ page }) => {
   const timerPlan = {

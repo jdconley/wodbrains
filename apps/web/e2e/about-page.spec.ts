@@ -1,7 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { expectPillLabelButton, expectPillLabelButtonFlatOnHover } from './helpers/button-styles';
+import { seedLegalAcceptance } from './helpers/legal';
 
 test.describe('About page', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedLegalAcceptance(page);
+  });
+
   test('renders about content', async ({ page }) => {
     // Mobile layout expectations (insets + bottom CTA)
     await page.setViewportSize({ width: 430, height: 900 });

@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fastStartRun } from './helpers/run';
+import { fastStartRun, startRunFromDefinition } from './helpers/run';
+import { seedLegalAcceptance } from './helpers/legal';
 
 const SCREENSHOTS_DIR = path.resolve(process.cwd(), 'docs/screenshots');
 const PORTRAIT = { width: 390, height: 844 };
@@ -22,6 +23,7 @@ test('readme screenshots', async ({ browser }) => {
 
   const portraitContext = await browser.newContext({ viewport: PORTRAIT });
   const page = await portraitContext.newPage();
+  await seedLegalAcceptance(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
 
   await page.goto('/');
@@ -42,9 +44,7 @@ test('readme screenshots', async ({ browser }) => {
   await page.waitForTimeout(150);
   await page.screenshot({ path: path.join(SCREENSHOTS_DIR, 'definition.png'), fullPage: true });
 
-  await page.locator('#startCountdown').click();
-  await expect(page).toHaveURL(/\/r\/[^?]+/);
-  await expect(page.locator('#timerValue')).toBeVisible();
+  await startRunFromDefinition(page);
   await expect(page.locator('#startOverlay')).toBeVisible();
   await fastStartRun(page, { delayMs: 1000 });
   await page.setViewportSize(LANDSCAPE);
@@ -58,7 +58,9 @@ test('readme screenshots', async ({ browser }) => {
   const leaderContext = await browser.newContext({ viewport: LANDSCAPE });
   const participantContext = await browser.newContext({ viewport: LANDSCAPE });
   const leader = await leaderContext.newPage();
+  await seedLegalAcceptance(leader);
   const participant = await participantContext.newPage();
+  await seedLegalAcceptance(participant);
 
   await leader.emulateMedia({ reducedMotion: 'reduce' });
   await participant.emulateMedia({ reducedMotion: 'reduce' });

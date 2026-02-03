@@ -1,4 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { seedLegalAcceptance } from './helpers/legal';
+
+test.beforeEach(async ({ page }) => {
+  await seedLegalAcceptance(page);
+});
 
 test('retries transient parse failures and shows connection pill', async ({ page }) => {
   let attempts = 0;

@@ -6,7 +6,7 @@ export function renderAboutPage(root: HTMLElement) {
   updateMeta({
     title: 'About - WOD Brains',
     description:
-      'WOD Brains magically builds a smart timer from any workout. Paste a workout, drop a screenshot, or share a URL.',
+      'WOD Brains magically builds a smart timer from any workout. Paste text, drop a screenshot, share a URL, or type a web search.',
     url: new URL('/about', window.location.origin).toString(),
   });
 
@@ -50,6 +50,10 @@ export function renderAboutPage(root: HTMLElement) {
         </p>
         <div class="FooterLinks">
           <a href="/about" class="FooterLink">About</a>
+          <span class="FooterDivider" aria-hidden="true">·</span>
+          <a href="/terms" class="FooterLink">Terms</a>
+          <span class="FooterDivider" aria-hidden="true">·</span>
+          <a href="/privacy" class="FooterLink">Privacy</a>
           <span class="FooterDivider" aria-hidden="true">·</span>
           <a href="mailto:jd@conleychaos.com" class="FooterLink">Contact Us</a>
         </div>

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { fastStartRun } from './helpers/run';
+import { seedLegalAcceptance } from './helpers/legal';
 
 const parseTimerMs = (value: string): number => {
   const text = value.trim();
@@ -22,6 +23,7 @@ test('leader and participant stay in sync', async ({ browser }) => {
   const leaderContext = await browser.newContext();
   const participantContext = await browser.newContext();
   const leader = await leaderContext.newPage();
+  await seedLegalAcceptance(leader);
 
   await leader.goto('/');
   await leader.locator('#input').fill('For time: 50 burpees');
@@ -56,6 +58,7 @@ test('leader and participant stay in sync', async ({ browser }) => {
   await expect(leader.locator('#runCornerLine')).not.toContainText('Leader');
 
   const participant = await participantContext.newPage();
+  await seedLegalAcceptance(participant);
   await participant.goto(runUrl);
   await expect(participant.locator('#timerValue')).toBeVisible();
 

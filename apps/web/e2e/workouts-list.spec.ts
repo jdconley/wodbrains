@@ -1,4 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { seedLegalAcceptance } from './helpers/legal';
+
+test.beforeEach(async ({ page }) => {
+  await seedLegalAcceptance(page);
+});
 
 test('workouts list shows generated workout and opens it', async ({ page }) => {
   await page.goto('/');

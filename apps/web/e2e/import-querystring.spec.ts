@@ -1,4 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { seedLegalAcceptance } from './helpers/legal';
+
+test.beforeEach(async ({ page }) => {
+  await seedLegalAcceptance(page);
+});
 
 test('auto-generate from q querystring', async ({ page }) => {
   await page.goto('/?q=For%20time%3A%2050%20burpees');

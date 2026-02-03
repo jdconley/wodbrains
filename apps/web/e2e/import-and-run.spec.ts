@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { fastStartRun } from './helpers/run';
+import { fastStartRun, startRunFromDefinition } from './helpers/run';
 import { expectPillLabelButton, expectPillLabelButtonFlatOnHover } from './helpers/button-styles';
+import { seedLegalAcceptance } from './helpers/legal';
 
 const parseTimerMs = (value: string | null) => {
   if (!value) return 0;
@@ -14,6 +15,10 @@ const parseTimerMs = (value: string | null) => {
   return (mins * 60 + secs) * 1000 + tenths * 100;
 };
 
+test.beforeEach(async ({ page }) => {
+  await seedLegalAcceptance(page);
+});
+
 test('import text -> generate -> start -> run controls', async ({ page }) => {
   await page.goto('/');
 
@@ -26,9 +31,7 @@ test('import text -> generate -> start -> run controls', async ({ page }) => {
   await expect(page).toHaveURL(/\/w\//);
   await expect(page.locator('[data-testid="builder-tree"]')).toBeVisible();
   await expect(page.locator('[data-testid="builder-node"]').first()).toBeVisible();
-  await page.locator('#startCountdown').click();
-
-  await expect(page).toHaveURL(/\/r\/[^?]+/);
+  await startRunFromDefinition(page);
 
   const timer = page.locator('#timerValue');
   const pause = page.locator('#pause');

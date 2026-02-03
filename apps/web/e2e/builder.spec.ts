@@ -1,8 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { fastStartRun } from './helpers/run';
+import { fastStartRun, startRunFromDefinition } from './helpers/run';
 import { expectPillLabelButton, expectPillLabelButtonFlatOnHover } from './helpers/button-styles';
+import { seedLegalAcceptance } from './helpers/legal';
 
 test.describe('workout builder', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedLegalAcceptance(page);
+  });
+
   test('create nested workout, save, start, run with nested counters', async ({ page }) => {
     // Use a wider mobile viewport so max-width caps would show up.
     await page.setViewportSize({ width: 430, height: 900 });
@@ -97,10 +102,7 @@ test.describe('workout builder', () => {
     await page.setViewportSize({ width: 360, height: 900 });
     await page.waitForFunction((el) => el.scrollHeight <= el.clientHeight + 2, noteHandle);
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
-
-    await expect(page.locator('#timerValue')).toBeVisible();
+    await startRunFromDefinition(page);
     await expect(page.locator('#startOverlay')).toBeVisible();
     await fastStartRun(page);
   });

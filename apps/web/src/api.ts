@@ -314,7 +314,7 @@ export async function createRun(
       credentials: 'include',
       body: JSON.stringify({ timerPlan: plan, definitionId: opts?.definitionId }),
     },
-    { idempotencyKey },
+    { idempotencyKey, maxAttempts: 5 },
   );
   if (!res.ok) await throwApiError(res);
   return (await res.json()) as CreateRunResponse;

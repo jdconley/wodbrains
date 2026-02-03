@@ -1,4 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { seedLegalAcceptance } from './helpers/legal';
+
+test.beforeEach(async ({ page }) => {
+  await seedLegalAcceptance(page);
+});
 
 test('timer-edit removes window resize listeners on navigation', async ({ page }) => {
   await page.addInitScript(() => {

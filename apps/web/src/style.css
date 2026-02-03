@@ -2195,8 +2195,11 @@ body {
 
 .FooterLinks {
   display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: 8px;
+  row-gap: 6px;
   margin-bottom: 6px;
 }
 
@@ -2286,6 +2289,59 @@ body {
 
 .AboutActions .PrimaryBtn {
   /* width comes from .CtaBtn (or default button sizing) */
+}
+
+/* ---- Legal pages ---- */
+.LegalContent {
+  gap: var(--space-lg);
+}
+
+.LegalMeta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.LegalSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.LegalSectionTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.LegalBody {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.LegalList {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.LegalList strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.LegalLink {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.LegalLink:hover,
+.LegalLink:focus {
+  text-decoration: underline;
 }
 
 /* ---- Definition screen (app-style) ---- */
@@ -2808,6 +2864,54 @@ body {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-sm);
+}
+
+/* ---- Legal consent dialog ---- */
+.LegalConsentLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.LegalConsentLink {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.LegalConsentLink:hover,
+.LegalConsentLink:focus {
+  text-decoration: underline;
+}
+
+.LegalConsentChecks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.LegalConsentCheck {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.LegalConsentCheck input[type='checkbox'] {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.LegalConsentInlineLink {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.LegalConsentFinePrint {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 /* ---- Timer overlay ---- */

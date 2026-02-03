@@ -128,7 +128,7 @@ const buildDefinitionOgHtml = (title: string) => {
     <div style="${textStyle}">
       <div style="${brandStyle}">WOD Brains</div>
       <div style="${titleStyle}">${safeTitle}</div>
-      <div style="${subtitleStyle}">Timer created for this workout.</div>
+      <div style="${subtitleStyle}">Timer is ready, let's go!</div>
     </div>
   </div>
 </div>`;

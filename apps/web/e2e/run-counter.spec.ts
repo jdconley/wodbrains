@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { fastStartRun } from './helpers/run';
+import { fastStartRun, startRunFromDefinition } from './helpers/run';
 import { expectSquareIconButton } from './helpers/button-styles';
+import { seedLegalAcceptance } from './helpers/legal';
+
+test.beforeEach(async ({ page }) => {
+  await seedLegalAcceptance(page);
+});
 
 test.describe('Timer rep counter', () => {
   test('for-time workout: tap shows celebration and rep counter visible when paused', async ({
@@ -11,9 +16,7 @@ test.describe('Timer rep counter', () => {
     await page.locator('#generate').click();
     await expect(page).toHaveURL(/\/w\//);
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
-    await expect(page.locator('#timerValue')).toBeVisible();
+    await startRunFromDefinition(page);
     await expect(page.locator('#startOverlay')).toBeVisible();
     await fastStartRun(page);
 
@@ -51,9 +54,7 @@ test.describe('Timer rep counter', () => {
     await page.locator('#input').fill('5 rounds: 30 sec work, 10 sec rest');
     await page.locator('#generate').click();
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
-    await expect(page.locator('#timerValue')).toBeVisible();
+    await startRunFromDefinition(page);
     await expect(page.locator('#startOverlay')).toBeVisible();
     await fastStartRun(page);
 
@@ -81,9 +82,7 @@ test.describe('Timer rep counter', () => {
     await page.locator('#input').fill('For time: 10 push-ups');
     await page.locator('#generate').click();
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
-    await expect(page.locator('#timerValue')).toBeVisible();
+    await startRunFromDefinition(page);
     await expect(page.locator('#timerValue')).toHaveCSS('white-space', 'nowrap');
   });
 
@@ -95,9 +94,7 @@ test.describe('Timer rep counter', () => {
     await page.locator('#generate').click();
     await expect(page).toHaveURL(/\/w\//);
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
-    await expect(page.locator('#timerValue')).toBeVisible();
+    await startRunFromDefinition(page);
     await expect(page.locator('#startOverlay')).toBeVisible();
     await fastStartRun(page);
 
@@ -134,9 +131,7 @@ test.describe('Split log', () => {
     await page.locator('#input').fill('For time: 100 double-unders');
     await page.locator('#generate').click();
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
-    await expect(page.locator('#timerValue')).toBeVisible();
+    await startRunFromDefinition(page);
     await expect(page.locator('#startOverlay')).toBeVisible();
     await fastStartRun(page);
 
@@ -162,9 +157,7 @@ test.describe('Split log', () => {
     await page.locator('#input').fill('For time: 30 snatches');
     await page.locator('#generate').click();
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
-    await expect(page.locator('#timerValue')).toBeVisible();
+    await startRunFromDefinition(page);
     await expect(page.locator('#startOverlay')).toBeVisible();
     await fastStartRun(page);
 

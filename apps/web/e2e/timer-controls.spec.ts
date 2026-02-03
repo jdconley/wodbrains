@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { fastStartRun } from './helpers/run';
+import { fastStartRun, startRunFromDefinition } from './helpers/run';
 import { expectPillLabelButton, expectPillLabelButtonFlatOnHover } from './helpers/button-styles';
+import { seedLegalAcceptance } from './helpers/legal';
 
 const parseTimerMs = (value: string | null) => {
   if (!value) return 0;
@@ -14,6 +15,10 @@ const parseTimerMs = (value: string | null) => {
   return (mins * 60 + secs) * 1000 + tenths * 100;
 };
 
+test.beforeEach(async ({ page }) => {
+  await seedLegalAcceptance(page);
+});
+
 test.describe('Rep celebration overlay', () => {
   test('tap shows celebration overlay with rep number and split time', async ({ page }) => {
     await page.goto('/');
@@ -21,9 +26,7 @@ test.describe('Rep celebration overlay', () => {
     await page.locator('#generate').click();
     await expect(page).toHaveURL(/\/w\//);
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
-    await expect(page.locator('#timerValue')).toBeVisible();
+    await startRunFromDefinition(page);
     await expect(page.locator('#startOverlay')).toBeVisible();
     await fastStartRun(page);
 
@@ -47,8 +50,7 @@ test.describe('Rep celebration overlay', () => {
     await page.locator('#input').fill('For time: 100 wall balls');
     await page.locator('#generate').click();
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
+    await startRunFromDefinition(page);
     await expect(page.locator('#startOverlay')).toBeVisible();
     await fastStartRun(page);
 
@@ -68,8 +70,7 @@ test.describe('Stop and Reset buttons', () => {
     await page.locator('#input').fill('For time: 20 thrusters');
     await page.locator('#generate').click();
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
+    await startRunFromDefinition(page);
     await expect(page.locator('#startOverlay')).toBeVisible();
     await fastStartRun(page);
 
@@ -91,8 +92,7 @@ test.describe('Stop and Reset buttons', () => {
     await page.locator('#input').fill('For time: 15 pull-ups');
     await page.locator('#generate').click();
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
+    await startRunFromDefinition(page);
     await expect(page.locator('#startOverlay')).toBeVisible();
     await fastStartRun(page);
 
@@ -117,8 +117,7 @@ test.describe('Stop and Reset buttons', () => {
     await page.locator('#input').fill('For time: 10 deadlifts');
     await page.locator('#generate').click();
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
+    await startRunFromDefinition(page);
     await expect(page.locator('#startOverlay')).toBeVisible();
     await page.locator('#startOverlay').click();
     await expect(page.locator('#pause')).toBeEnabled({ timeout: 15000 });
@@ -146,8 +145,7 @@ test.describe('Stop and Reset buttons', () => {
     await page.locator('#input').fill('For time: 5 box jumps');
     await page.locator('#generate').click();
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
+    await startRunFromDefinition(page);
     // Extract just the run ID from the URL (without autostart param)
     const originalRunId = page.url().match(/\/r\/([^?]+)/)?.[1];
     await expect(page.locator('#startOverlay')).toBeVisible();
@@ -174,8 +172,7 @@ test.describe('Finish summary overlay', () => {
     await page.locator('#input').fill('For time: 10 cleans');
     await page.locator('#generate').click();
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
+    await startRunFromDefinition(page);
     await expect(page.locator('#startOverlay')).toBeVisible();
     await fastStartRun(page);
 
@@ -201,8 +198,7 @@ test.describe('Finish summary overlay', () => {
     await page.locator('#input').fill('For time: 20 kettlebell swings');
     await page.locator('#generate').click();
 
-    await page.locator('#startCountdown').click();
-    await expect(page).toHaveURL(/\/r\/[^?]+/);
+    await startRunFromDefinition(page);
     await expect(page.locator('#startOverlay')).toBeVisible();
     await fastStartRun(page);
 

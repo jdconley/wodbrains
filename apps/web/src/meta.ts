@@ -1,7 +1,7 @@
 const DEFAULT_SITE_URL = 'https://wodbrains.com';
 const DEFAULT_TITLE = 'WOD Brains magically builds a smart timer from any workout';
 const DEFAULT_DESCRIPTION =
-  'WOD Brains magically builds a smart timer from any workout. Paste a workout, drop a screenshot, or share a URL.';
+  'WOD Brains magically builds a smart timer from any workout. Paste text, drop a screenshot, share a URL, or type a web search.';
 const DEFAULT_OG_IMAGE = `${DEFAULT_SITE_URL}/og-image.jpg`;
 const SITE_NAME = 'WOD Brains';
 

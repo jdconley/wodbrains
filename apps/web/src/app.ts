@@ -4,6 +4,8 @@ import { renderRunPage } from './pages/run';
 import { renderWorkoutsPage } from './pages/workouts';
 import { renderTimerEditPage } from './pages/timer-edit';
 import { renderAboutPage } from './pages/about';
+import { renderPrivacyPage } from './pages/privacy';
+import { renderTermsPage } from './pages/terms';
 
 export function startApp(root: HTMLElement) {
   const render = async () => {
@@ -14,6 +16,14 @@ export function startApp(root: HTMLElement) {
     }
     if (route.name === 'about') {
       renderAboutPage(root);
+      return;
+    }
+    if (route.name === 'privacy') {
+      renderPrivacyPage(root);
+      return;
+    }
+    if (route.name === 'terms') {
+      renderTermsPage(root);
       return;
     }
     if (route.name === 'definition') {

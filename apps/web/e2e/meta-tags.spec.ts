@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { seedLegalAcceptance } from './helpers/legal';
 
 test.describe('Meta tags', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedLegalAcceptance(page);
+  });
+
   test('homepage includes OG and Twitter tags', async ({ page }) => {
     await page.goto('/');
     const ogTitle = page.locator('meta[property="og:title"]');

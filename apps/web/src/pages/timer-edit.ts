@@ -240,6 +240,10 @@ export async function renderTimerEditPage(root: HTMLElement, definitionId: strin
         <div class="FooterLinks">
           <a href="/about" class="FooterLink">About</a>
           <span class="FooterDivider" aria-hidden="true">·</span>
+          <a href="/terms" class="FooterLink">Terms</a>
+          <span class="FooterDivider" aria-hidden="true">·</span>
+          <a href="/privacy" class="FooterLink">Privacy</a>
+          <span class="FooterDivider" aria-hidden="true">·</span>
           <a href="mailto:jd@conleychaos.com" class="FooterLink">Contact Us</a>
         </div>
         <div class="FooterCopyright">WOD Brains™ · © 2026 Conley Chaos LLC</div>

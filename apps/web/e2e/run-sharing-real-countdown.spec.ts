@@ -1,9 +1,12 @@
 import { expect, test } from '@playwright/test';
+import { seedLegalAcceptance } from './helpers/legal';
+import { startRunFromDefinition } from './helpers/run';
 
 test('run sharing: real 10s countdown (production behavior)', async ({ browser }) => {
   const leaderContext = await browser.newContext();
   const participantContext = await browser.newContext();
   const leader = await leaderContext.newPage();
+  await seedLegalAcceptance(leader);
 
   // Create a definition via UI (uses stub parse in Playwright webServer)
   await leader.goto('/');
@@ -12,11 +15,11 @@ test('run sharing: real 10s countdown (production behavior)', async ({ browser }
   await expect(leader).toHaveURL(/\/w\//);
 
   // Start run (definition page creates run, run page is idle)
-  await leader.locator('#startCountdown').click();
-  await expect(leader).toHaveURL(/\/r\/[^?]+/);
+  await startRunFromDefinition(leader);
 
   const runUrl = leader.url();
   const participant = await participantContext.newPage();
+  await seedLegalAcceptance(participant);
   await participant.goto(runUrl);
 
   await expect(leader.locator('#runCornerLine')).toContainText('Leader');

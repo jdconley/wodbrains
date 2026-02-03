@@ -1,4 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
+import { seedLegalAcceptance } from './helpers/legal';
+
+test.beforeEach(async ({ page }) => {
+  await seedLegalAcceptance(page);
+});
 
 const createDefinition = async (page: Page) => {
   const workoutDefinition = {

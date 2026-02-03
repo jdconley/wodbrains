@@ -12,6 +12,7 @@ import { appHeader, setupAppHeader } from '../components/header';
 import { updateMeta } from '../meta';
 import { haptics, startRumble, stopRumble } from '../utils/haptics';
 import { showToast } from '../components/toast';
+import { requireLegalConsent } from '../components/legal-consent';
 
 export function renderImportPage(root: HTMLElement) {
   updateMeta({ url: new URL('/', window.location.origin).toString() });
@@ -67,6 +68,10 @@ export function renderImportPage(root: HTMLElement) {
         </p>
         <div class="FooterLinks">
           <a href="/about" class="FooterLink">About</a>
+          <span class="FooterDivider" aria-hidden="true">·</span>
+          <a href="/terms" class="FooterLink">Terms</a>
+          <span class="FooterDivider" aria-hidden="true">·</span>
+          <a href="/privacy" class="FooterLink">Privacy</a>
           <span class="FooterDivider" aria-hidden="true">·</span>
           <a href="mailto:jd@conleychaos.com" class="FooterLink">Contact Us</a>
         </div>
@@ -550,6 +555,15 @@ export function renderImportPage(root: HTMLElement) {
     if (!hasFile && !hasImageUrl && !text) {
       setStatus('');
       showToast('Add an image, URL, or text first.', 'error');
+      return;
+    }
+
+    try {
+      await requireLegalConsent({ context: 'generate' });
+    } catch {
+      if (source === 'click') {
+        showToast('Accept Terms & Privacy to generate a timer.', 'error');
+      }
       return;
     }
 

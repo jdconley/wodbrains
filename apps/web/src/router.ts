@@ -1,6 +1,8 @@
 export type Route =
   | { name: 'import' }
   | { name: 'about' }
+  | { name: 'privacy' }
+  | { name: 'terms' }
   | { name: 'workouts' }
   | { name: 'definition'; definitionId: string }
   | { name: 'definition-edit'; definitionId: string }
@@ -11,6 +13,8 @@ export function getRoute(): Route {
 
   if (path === '/') return { name: 'import' };
   if (path === '/about') return { name: 'about' };
+  if (path === '/privacy') return { name: 'privacy' };
+  if (path === '/terms') return { name: 'terms' };
   if (path === '/workouts') return { name: 'workouts' };
 
   const runMatch = path.match(/^\/r\/([^/]+)$/);
