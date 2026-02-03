@@ -8,7 +8,7 @@ const describeLive = shouldRun ? describe : describe.skip;
 
 const LIVE_TIMEOUT_MS = 300_000;
 
-const textFiles = ['1.txt', '2.txt', '3.txt', '4.txt', '5.txt', '6.txt', '7.txt', '8.txt', '9.txt'] as const;
+const textFiles = ['1.txt', '2.txt', '3.txt', '4.txt', '5.txt', '6.txt', '7.txt', '8.txt', '9.txt', '10.txt'] as const;
 const textByFile: Record<(typeof textFiles)[number], string> = {
 	'1.txt': `6 Min AMRAP
 (As Many Rounds and Reps As Possible in 6 Minutes)
@@ -86,6 +86,7 @@ Chest-to-bar pull-ups
 ♂ 205 lb`,
 	'8.txt': `https://www.crossfit.com/250103`,
 	'9.txt': `https://www.crossfit.com/250104`,
+	'10.txt': `crossfit cindy`,
 };
 const imageFiles = [
 	'Screenshot 2026-01-25 at 8.28.33\u202fPM.png',

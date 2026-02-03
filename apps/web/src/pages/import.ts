@@ -24,8 +24,8 @@ export function renderImportPage(root: HTMLElement) {
           <textarea
             class="UnifiedTextarea"
             id="input"
-            placeholder="Paste a URL, drop an image, or paste your workout text..."
-            aria-label="Enter workout URL, text, or drop an image"
+            placeholder="Paste a URL, drop an image, paste workout text, or type a web search (e.g. CrossFit Cindy)..."
+            aria-label="Enter workout URL, text, web search, or drop an image"
             rows="4"
           ></textarea>
           <input type="file" id="fileInput" accept="image/*" hidden aria-hidden="true" />
@@ -63,7 +63,7 @@ export function renderImportPage(root: HTMLElement) {
 
       <footer class="PageFooter">
         <p class="FooterTagline">
-          WOD Brains magically builds a smart timer from any workout. Paste text, drop a screenshot, or share a URL.
+          WOD Brains magically builds a smart timer from any workout. Paste text, drop a screenshot, share a URL, or type a web search.
         </p>
         <div class="FooterLinks">
           <a href="/about" class="FooterLink">About</a>

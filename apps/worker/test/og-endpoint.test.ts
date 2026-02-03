@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { SELF, env } from 'cloudflare:test';
-import { Buffer } from 'node:buffer';
 import {
 	OG_IMAGE_CACHE_CONTROL,
 	OG_IMAGE_CONTENT_TYPE,
@@ -8,6 +7,13 @@ import {
 	buildDefinitionOgKey,
 	buildDefinitionOgObjectKey,
 } from '../src/og';
+
+function base64ToUint8Array(base64: string): Uint8Array {
+	const binary = atob(base64);
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+	return bytes;
+}
 
 describe('/og/definitions/:ogImageKey', () => {
 	it('serves a generated PNG (no 500) when missing from R2', async () => {
@@ -75,7 +81,7 @@ describe('/og/definitions/:ogImageKey', () => {
 			.run();
 
 		const objectKey = buildDefinitionOgObjectKey(ogImageKey);
-		const bytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAA3X5yUAAAAASUVORK5CYII=', 'base64');
+		const bytes = base64ToUint8Array('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAA3X5yUAAAAASUVORK5CYII=');
 		await env.OG_IMAGES.put(objectKey, bytes, {
 			httpMetadata: {
 				// Wrong on purpose: should be image/png.
@@ -126,7 +132,7 @@ describe('/og/definitions/:ogImageKey', () => {
 				.run();
 
 			const objectKey = buildDefinitionOgObjectKey(ogImageKey);
-			const bytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAA3X5yUAAAAASUVORK5CYII=', 'base64');
+			const bytes = base64ToUint8Array('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAA3X5yUAAAAASUVORK5CYII=');
 			await env.OG_IMAGES.put(objectKey, bytes, {
 				httpMetadata: { contentType: OG_IMAGE_CONTENT_TYPE, cacheControl: OG_IMAGE_CACHE_CONTROL },
 				customMetadata: { ogRenderVersion: '1' },
