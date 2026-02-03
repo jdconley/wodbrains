@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 
 const strict = process.env.WRANGLER_GEN_STRICT === '1';
 
@@ -41,6 +42,25 @@ const ogImagesBucket = optionalEnv('CLOUDFLARE_R2_BUCKET_OG_IMAGES') ?? 'example
 
 const stubParse = optionalEnv('STUB_PARSE') ?? '0';
 
+const resolveBuildSha = () => {
+  const ghaSha = optionalEnv('GITHUB_SHA');
+  if (ghaSha) return ghaSha;
+  try {
+    // Best-effort fallback for local/manual deploys.
+    // Note: Keep this non-fatal even in strict mode; it’s only for observability.
+    return execSync('git rev-parse HEAD', {
+      cwd: repoRoot,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf8',
+    }).trim();
+  } catch {
+    return 'unknown';
+  }
+};
+
+const buildSha = resolveBuildSha();
+const buildTime = new Date().toISOString();
+
 const wranglerConfig = {
   name: 'wodbrains-worker',
   main: 'src/index.ts',
@@ -48,6 +68,8 @@ const wranglerConfig = {
   compatibility_flags: ['nodejs_compat'],
   vars: {
     STUB_PARSE: String(stubParse),
+    BUILD_SHA: buildSha,
+    BUILD_TIME: buildTime,
   },
   migrations: [
     {

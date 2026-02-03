@@ -389,6 +389,17 @@ export function createApp() {
 	const app = new Hono<HonoEnv>();
 
 	app.get('/api/ping', (c) => c.text('ok'));
+	app.get('/api/version', (c) => {
+		const sha = c.env.BUILD_SHA?.trim() || 'unknown';
+		const builtAt = c.env.BUILD_TIME?.trim() || 'unknown';
+		return new Response(JSON.stringify({ sha, builtAt }), {
+			status: 200,
+			headers: {
+				'content-type': 'application/json; charset=utf-8',
+				'cache-control': 'no-store',
+			},
+		});
+	});
 
 	// Better Auth endpoints (GET/POST).
 	app.on(['GET', 'POST'], '/api/auth/*', (c) => {

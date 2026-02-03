@@ -28,4 +28,8 @@ export interface Env {
 	// Test helpers
 	STUB_PARSE?: string;
 	STUB_OG?: string;
+
+	// Build metadata (injected by wrangler config generation)
+	BUILD_SHA?: string;
+	BUILD_TIME?: string;
 }
