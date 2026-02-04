@@ -34,15 +34,16 @@ test.describe('workout builder', () => {
     const contentInsetLeftX = (contentBox?.x ?? 0) + contentPadLeft;
     const contentInsetRightX = (contentBox?.x ?? 0) + (contentBox?.width ?? 0) - contentPadRight;
 
-    const backSvgBox = await page.locator('#appHeaderBack svg').boundingBox();
-    expect(backSvgBox).not.toBeNull();
-    expect(Math.abs((backSvgBox?.x ?? 0) - contentInsetLeftX)).toBeLessThanOrEqual(1);
+    // Align the *button* hit target edge (glyph is centered within it).
+    const backBtnBox = await page.locator('#appHeaderBack').boundingBox();
+    expect(backBtnBox).not.toBeNull();
+    expect(Math.abs((backBtnBox?.x ?? 0) - contentInsetLeftX)).toBeLessThanOrEqual(1);
 
-    const rightSvgLocator = page.locator('.AppHeaderRight svg').first();
-    if (await rightSvgLocator.count()) {
-      const rightSvgBox = await rightSvgLocator.boundingBox();
-      expect(rightSvgBox).not.toBeNull();
-      const rightEdge = (rightSvgBox?.x ?? 0) + (rightSvgBox?.width ?? 0);
+    const rightBtnLocator = page.locator('.AppHeaderRight button').first();
+    if (await rightBtnLocator.count()) {
+      const rightBtnBox = await rightBtnLocator.boundingBox();
+      expect(rightBtnBox).not.toBeNull();
+      const rightEdge = (rightBtnBox?.x ?? 0) + (rightBtnBox?.width ?? 0);
       expect(Math.abs(rightEdge - contentInsetRightX)).toBeLessThanOrEqual(1);
     }
 
