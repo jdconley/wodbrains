@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@wodbrains/core": "workspace:*",
-    "sortablejs": "^1.15.6"
+    "sortablejs": "^1.15.6",
+    "workbox-window": "^7.4.0"
   }
 }

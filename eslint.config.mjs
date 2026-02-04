@@ -11,6 +11,7 @@ export default [
       '**/build/**',
       '**/coverage/**',
       '**/.wrangler/**',
+      '**/apps/worker/public/**',
       '**/public/assets/**',
       '**/playwright-report/**',
       '**/test-results/**',

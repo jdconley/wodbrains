@@ -70,6 +70,9 @@ importers:
       sortablejs:
         specifier: ^1.15.6
         version: 1.15.6
+      workbox-window:
+        specifier: ^7.4.0
+        version: 7.4.0
     devDependencies:
       '@types/sortablejs':
         specifier: ^1.15.9
