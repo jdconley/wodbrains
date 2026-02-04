@@ -30,6 +30,7 @@ import {
 import { formatSiteTitle, updateMeta } from '../meta';
 import { haptics } from '../utils/haptics';
 import { initSounds, sounds } from '../utils/sound';
+import { canPromptInstall, isIos, isStandalone, promptInstall } from '../utils/pwa';
 import {
   exitFullscreen,
   isFullscreen,
@@ -65,6 +66,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     // Intentionally hidden feature; keep it sane.
     return Math.max(0.1, Math.min(600, parsed));
   })();
+  const showFullscreenControls = !isStandalone();
   // Initially render with no back target - will be set after loading run data
   root.innerHTML = `
     <div class="RunShell" id="runShell">
@@ -89,7 +91,11 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
         `,
       })}
 
-      <button class="RunFabBtn RunFullscreenBtn RunChrome hidden" id="runFullscreenBtn" type="button" aria-label="Enter fullscreen" aria-pressed="false"></button>
+      ${
+        showFullscreenControls
+          ? '<button class="RunFabBtn RunFullscreenBtn RunChrome hidden" id="runFullscreenBtn" type="button" aria-label="Enter fullscreen" aria-pressed="false"></button>'
+          : ''
+      }
       <button class="RunFabBtn RunMuteBtn RunChrome hidden" id="runMuteBtn" type="button" aria-label="Mute sounds" aria-pressed="true"></button>
       <button class="RunFabBtn RunInfoBtn RunChrome hidden" id="runInfoBtn" type="button" aria-label="Show workout plan">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -116,7 +122,11 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
 
       <!-- Start overlay (shown when idle) -->
       <div class="RunStartOverlay" id="startOverlay" role="button" tabindex="0" aria-label="Tap anywhere to start workout">
-        <button class="RunFabBtn RunOverlayFullscreenBtn" id="runOverlayFullscreenBtn" type="button" aria-label="Enter fullscreen" aria-pressed="false"></button>
+        ${
+          showFullscreenControls
+            ? '<button class="RunFabBtn RunOverlayFullscreenBtn" id="runOverlayFullscreenBtn" type="button" aria-label="Enter fullscreen" aria-pressed="false"></button>'
+            : ''
+        }
         <button class="RunFabBtn RunOverlayMuteBtn" id="runOverlayMuteBtn" type="button" aria-label="Mute sounds" aria-pressed="true"></button>
         <button class="RunFabBtn RunOverlayInfoBtn" id="runOverlayInfoBtn" type="button" aria-label="Show workout plan">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -169,6 +179,39 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
             </button>
           </div>
           <div class="RunInfoList" id="infoList" role="list"></div>
+        </div>
+      </div>
+
+      <!-- Install overlay (PWA prompt/help) -->
+      <div class="RunInstallOverlay hidden" id="installOverlay" role="dialog" aria-modal="true" aria-labelledby="installTitle">
+        <div class="RunInstallCard">
+          <div class="RunInstallHeader">
+            <div class="RunInstallTitle" id="installTitle">Install WOD Brains</div>
+            <button class="GhostBtn MiniBtn IconBtn IconBtn--square" id="installClose" type="button" aria-label="Close install prompt">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+          <div class="RunInstallBody">
+            <div class="RunInstallSection" id="installAndroidSection">
+              <div class="RunInstallSectionTitle">Android</div>
+              <div class="RunInstallText">Install WOD Brains for fullscreen and offline-ready runs.</div>
+              <button class="PrimaryBtn RunInstallAction" id="installAction" type="button">Install</button>
+            </div>
+            <div class="RunInstallSection" id="installIosSection">
+              <div class="RunInstallSectionTitle">iPhone Safari</div>
+              <ol class="RunInstallSteps">
+                <li>Tap Share.</li>
+                <li>Select Add to Home Screen.</li>
+                <li>Open WOD Brains from the new icon.</li>
+              </ol>
+            </div>
+            <div class="RunInstallNote" id="installNote">
+              If you don’t see Install, use your browser menu to add it to your home screen.
+            </div>
+          </div>
         </div>
       </div>
 
@@ -242,6 +285,12 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   const infoTitleEl = root.querySelector<HTMLDivElement>('#infoTitle')!;
   const infoListEl = root.querySelector<HTMLDivElement>('#infoList')!;
   const infoCloseEl = root.querySelector<HTMLButtonElement>('#infoClose')!;
+  const installOverlayEl = root.querySelector<HTMLDivElement>('#installOverlay')!;
+  const installCloseEl = root.querySelector<HTMLButtonElement>('#installClose')!;
+  const installActionEl = root.querySelector<HTMLButtonElement>('#installAction')!;
+  const installAndroidSectionEl = root.querySelector<HTMLDivElement>('#installAndroidSection')!;
+  const installIosSectionEl = root.querySelector<HTMLDivElement>('#installIosSection')!;
+  const installNoteEl = root.querySelector<HTMLDivElement>('#installNote')!;
   const splitOverlayEl = root.querySelector<HTMLDivElement>('#splitOverlay')!;
   const splitTitleEl = root.querySelector<HTMLDivElement>('#splitTitle')!;
   const splitListEl = root.querySelector<HTMLDivElement>('#splitList')!;
@@ -256,8 +305,8 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   const finishDoneEl = root.querySelector<HTMLButtonElement>('#finishDone')!;
   const headerShareEl = root.querySelector<HTMLButtonElement>('#runHeaderShare')!;
   const headerEditEl = root.querySelector<HTMLButtonElement>('#runHeaderEdit')!;
-  const fullscreenBtn = root.querySelector<HTMLButtonElement>('#runFullscreenBtn')!;
-  const fullscreenOverlayBtn = root.querySelector<HTMLButtonElement>('#runOverlayFullscreenBtn')!;
+  const fullscreenBtn = root.querySelector<HTMLButtonElement>('#runFullscreenBtn');
+  const fullscreenOverlayBtn = root.querySelector<HTMLButtonElement>('#runOverlayFullscreenBtn');
   const muteBtn = root.querySelector<HTMLButtonElement>('#runMuteBtn')!;
   const muteOverlayBtn = root.querySelector<HTMLButtonElement>('#runOverlayMuteBtn')!;
   const infoBtn = root.querySelector<HTMLButtonElement>('#runInfoBtn')!;
@@ -317,10 +366,12 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   let cleanupFullscreen = () => {};
   let fullscreenAutohideTimeoutId = 0;
   let cleanupFullscreenAutohide = () => {};
+  let updateFullscreenAutohide = (_forceReshow = false) => {};
   let cursorAutohideTimeoutId = 0;
   let cursorAutohideRafId = 0;
   let cleanupCursorAutohide = () => {};
   let runStatusForFullscreen: string = 'idle';
+  let installPromptArmed = false;
   const runChromeAutohideMs = 3000;
   const cursorAutohideMs = 2500;
 
@@ -407,168 +458,193 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       <polyline points="9 20 9 15 4 15"></polyline>
     </svg>
   `;
-  const fullscreenSupported = isFullscreenSupported(document.documentElement);
-  const setFullscreenButtonState = (button: HTMLButtonElement, active: boolean) => {
-    const label = fullscreenSupported
-      ? active
-        ? 'Exit fullscreen'
-        : 'Enter fullscreen'
-      : 'Fullscreen not supported';
-    button.setAttribute('aria-label', label);
-    button.setAttribute('aria-pressed', active ? 'true' : 'false');
-    button.setAttribute('aria-disabled', fullscreenSupported ? 'false' : 'true');
-    button.classList.toggle('RunFullscreenBtn--disabled', !fullscreenSupported);
-    button.title = label;
-    button.innerHTML = active ? fullscreenSvgExit : fullscreenSvgEnter;
-  };
-  const fullscreenAutohideMs = runChromeAutohideMs;
-  let fullscreenAutohideActive = false;
-  let fullscreenAutohideRafId = 0;
-  const setRunChromeAutohide = (autohide: boolean) => {
-    for (const el of [fullscreenBtn, muteBtn, infoBtn, tapHintEl, runHeaderEl]) {
-      if (!el) continue;
-      el.classList.toggle('autohide', autohide);
-    }
-  };
-  const showFullscreenBtn = () => {
-    setRunChromeAutohide(false);
-  };
-  const hideFullscreenBtn = () => {
-    setRunChromeAutohide(true);
-  };
-  const cancelFullscreenAutohide = () => {
-    if (!fullscreenAutohideTimeoutId) return;
-    clearTimeout(fullscreenAutohideTimeoutId);
-    fullscreenAutohideTimeoutId = 0;
-  };
-  const wantsFullscreenAutohide = () => isFullscreen() && runStatusForFullscreen === 'running';
-  const startFullscreenAutohideTimer = () => {
-    cancelFullscreenAutohide();
-    fullscreenAutohideTimeoutId = window.setTimeout(() => {
-      if (wantsFullscreenAutohide()) {
-        hideFullscreenBtn();
+  if (fullscreenBtn && fullscreenOverlayBtn) {
+    const fullscreenSupported = isFullscreenSupported(document.documentElement);
+    const setFullscreenButtonState = (button: HTMLButtonElement, active: boolean) => {
+      const label = fullscreenSupported
+        ? active
+          ? 'Exit fullscreen'
+          : 'Enter fullscreen'
+        : 'Install app for fullscreen';
+      button.setAttribute('aria-label', label);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      button.setAttribute('aria-disabled', 'false');
+      button.classList.toggle('RunFullscreenBtn--disabled', !fullscreenSupported);
+      button.title = label;
+      button.innerHTML = active ? fullscreenSvgExit : fullscreenSvgEnter;
+    };
+    const fullscreenAutohideMs = runChromeAutohideMs;
+    let fullscreenAutohideActive = false;
+    let fullscreenAutohideRafId = 0;
+    const setRunChromeAutohide = (autohide: boolean) => {
+      for (const el of [fullscreenBtn, muteBtn, infoBtn, tapHintEl, runHeaderEl]) {
+        if (!el) continue;
+        el.classList.toggle('autohide', autohide);
       }
+    };
+    const showFullscreenBtn = () => {
+      setRunChromeAutohide(false);
+    };
+    const hideFullscreenBtn = () => {
+      setRunChromeAutohide(true);
+    };
+    const cancelFullscreenAutohide = () => {
+      if (!fullscreenAutohideTimeoutId) return;
+      clearTimeout(fullscreenAutohideTimeoutId);
       fullscreenAutohideTimeoutId = 0;
-    }, fullscreenAutohideMs);
-  };
-  const updateFullscreenAutohide = (forceReshow = false) => {
-    const wanted = wantsFullscreenAutohide();
-    if (!wanted) {
-      fullscreenAutohideActive = false;
+    };
+    const wantsFullscreenAutohide = () => isFullscreen() && runStatusForFullscreen === 'running';
+    const startFullscreenAutohideTimer = () => {
       cancelFullscreenAutohide();
-      showFullscreenBtn();
-      return;
-    }
-    if (!fullscreenAutohideActive) {
-      fullscreenAutohideActive = true;
-      showFullscreenBtn();
-      startFullscreenAutohideTimer();
-      return;
-    }
-    if (forceReshow) {
-      showFullscreenBtn();
-      startFullscreenAutohideTimer();
-    }
-  };
-  const handleFullscreenPointerActivity = () => {
-    if (!wantsFullscreenAutohide()) return;
-    if (fullscreenAutohideRafId) return;
-    fullscreenAutohideRafId = window.requestAnimationFrame(() => {
-      fullscreenAutohideRafId = 0;
-      updateFullscreenAutohide(true);
-    });
-  };
-  document.addEventListener('mousemove', handleFullscreenPointerActivity, { passive: true });
-  const runCursorHiddenRootClass = 'RunCursorHidden';
-  const cursorRootEl = document.documentElement;
-  const showCursor = () => {
-    runShellEl.classList.remove('cursorHidden');
-    cursorRootEl.classList.remove(runCursorHiddenRootClass);
-  };
-  const hideCursor = () => {
-    runShellEl.classList.add('cursorHidden');
-    cursorRootEl.classList.add(runCursorHiddenRootClass);
-  };
-  const cancelCursorAutohide = () => {
-    if (!cursorAutohideTimeoutId) return;
-    clearTimeout(cursorAutohideTimeoutId);
-    cursorAutohideTimeoutId = 0;
-  };
-  const wantsCursorAutohide = () => isFullscreen();
-  const startCursorAutohideTimer = () => {
-    cancelCursorAutohide();
-    cursorAutohideTimeoutId = window.setTimeout(() => {
-      if (wantsCursorAutohide()) {
-        hideCursor();
+      fullscreenAutohideTimeoutId = window.setTimeout(() => {
+        if (wantsFullscreenAutohide()) {
+          hideFullscreenBtn();
+        }
+        fullscreenAutohideTimeoutId = 0;
+      }, fullscreenAutohideMs);
+    };
+    updateFullscreenAutohide = (forceReshow = false) => {
+      const wanted = wantsFullscreenAutohide();
+      if (!wanted) {
+        fullscreenAutohideActive = false;
+        cancelFullscreenAutohide();
+        showFullscreenBtn();
+        return;
       }
+      if (!fullscreenAutohideActive) {
+        fullscreenAutohideActive = true;
+        showFullscreenBtn();
+        startFullscreenAutohideTimer();
+        return;
+      }
+      if (forceReshow) {
+        showFullscreenBtn();
+        startFullscreenAutohideTimer();
+      }
+    };
+    const handleFullscreenPointerActivity = () => {
+      if (!wantsFullscreenAutohide()) return;
+      if (fullscreenAutohideRafId) return;
+      fullscreenAutohideRafId = window.requestAnimationFrame(() => {
+        fullscreenAutohideRafId = 0;
+        updateFullscreenAutohide(true);
+      });
+    };
+    document.addEventListener('mousemove', handleFullscreenPointerActivity, { passive: true });
+    const runCursorHiddenRootClass = 'RunCursorHidden';
+    const cursorRootEl = document.documentElement;
+    const showCursor = () => {
+      runShellEl.classList.remove('cursorHidden');
+      cursorRootEl.classList.remove(runCursorHiddenRootClass);
+    };
+    const hideCursor = () => {
+      runShellEl.classList.add('cursorHidden');
+      cursorRootEl.classList.add(runCursorHiddenRootClass);
+    };
+    const cancelCursorAutohide = () => {
+      if (!cursorAutohideTimeoutId) return;
+      clearTimeout(cursorAutohideTimeoutId);
       cursorAutohideTimeoutId = 0;
-    }, cursorAutohideMs);
-  };
-  const updateCursorAutohide = (forceReshow = false) => {
-    if (!wantsCursorAutohide()) {
+    };
+    const wantsCursorAutohide = () => isFullscreen();
+    const startCursorAutohideTimer = () => {
+      cancelCursorAutohide();
+      cursorAutohideTimeoutId = window.setTimeout(() => {
+        if (wantsCursorAutohide()) {
+          hideCursor();
+        }
+        cursorAutohideTimeoutId = 0;
+      }, cursorAutohideMs);
+    };
+    const updateCursorAutohide = (forceReshow = false) => {
+      if (!wantsCursorAutohide()) {
+        cancelCursorAutohide();
+        showCursor();
+        return;
+      }
+      if (forceReshow || !cursorAutohideTimeoutId) {
+        showCursor();
+        startCursorAutohideTimer();
+      }
+    };
+    const handleCursorPointerActivity = () => {
+      if (!wantsCursorAutohide()) return;
+      if (cursorAutohideRafId) return;
+      cursorAutohideRafId = window.requestAnimationFrame(() => {
+        cursorAutohideRafId = 0;
+        updateCursorAutohide(true);
+      });
+    };
+    document.addEventListener('mousemove', handleCursorPointerActivity, { passive: true });
+    const updateFullscreenButtons = () => {
+      const active = isFullscreen();
+      setFullscreenButtonState(fullscreenBtn, active);
+      setFullscreenButtonState(fullscreenOverlayBtn, active);
+      updateFullscreenAutohide(true);
+      updateCursorAutohide(true);
+    };
+    const handleInstallPrompt = async () => {
+      installPromptArmed = false;
+      if (canPromptInstall()) {
+        const outcome = await promptInstall();
+        if (outcome === 'accepted') {
+          showToast('WOD Brains installed.', 'ok', { timeoutMs: 1600 });
+        } else if (outcome === 'dismissed') {
+          showToast('Install dismissed.', 'muted', { timeoutMs: 1400 });
+        } else {
+          showToast('Install not available on this device.', 'muted', { timeoutMs: 1600 });
+        }
+        return;
+      }
+      openInstallOverlay();
+    };
+    const handleFullscreenToggle = async (event: Event) => {
+      event.stopPropagation();
+      if (!fullscreenSupported) {
+        if (installPromptArmed) {
+          await handleInstallPrompt();
+        } else {
+          showToast('Install WOD Brains for fullscreen. Tap again to install.', 'muted', {
+            timeoutMs: 2000,
+          });
+          installPromptArmed = true;
+        }
+        return;
+      }
+      const ok = isFullscreen()
+        ? await exitFullscreen()
+        : await requestFullscreen(document.documentElement);
+      if (!ok) {
+        showToast('Fullscreen request was blocked.', 'muted', { timeoutMs: 1800 });
+        return;
+      }
+      installPromptArmed = false;
+      // Some browsers/devices are flaky about firing fullscreenchange promptly.
+      updateFullscreenButtons();
+    };
+    fullscreenBtn.addEventListener('click', handleFullscreenToggle);
+    fullscreenOverlayBtn.addEventListener('click', handleFullscreenToggle);
+    fullscreenOverlayBtn.addEventListener('keydown', (event) => {
+      if (event.key === ' ' || event.key === 'Enter') {
+        event.stopPropagation();
+      }
+    });
+    updateFullscreenButtons();
+    cleanupFullscreen = onFullscreenChange(updateFullscreenButtons);
+    cleanupFullscreenAutohide = () => {
+      cancelFullscreenAutohide();
+      if (fullscreenAutohideRafId) window.cancelAnimationFrame(fullscreenAutohideRafId);
+      fullscreenAutohideRafId = 0;
+      document.removeEventListener('mousemove', handleFullscreenPointerActivity);
+    };
+    cleanupCursorAutohide = () => {
       cancelCursorAutohide();
       showCursor();
-      return;
-    }
-    if (forceReshow || !cursorAutohideTimeoutId) {
-      showCursor();
-      startCursorAutohideTimer();
-    }
-  };
-  const handleCursorPointerActivity = () => {
-    if (!wantsCursorAutohide()) return;
-    if (cursorAutohideRafId) return;
-    cursorAutohideRafId = window.requestAnimationFrame(() => {
+      if (cursorAutohideRafId) window.cancelAnimationFrame(cursorAutohideRafId);
       cursorAutohideRafId = 0;
-      updateCursorAutohide(true);
-    });
-  };
-  document.addEventListener('mousemove', handleCursorPointerActivity, { passive: true });
-  const updateFullscreenButtons = () => {
-    const active = isFullscreen();
-    setFullscreenButtonState(fullscreenBtn, active);
-    setFullscreenButtonState(fullscreenOverlayBtn, active);
-    updateFullscreenAutohide(true);
-    updateCursorAutohide(true);
-  };
-  const handleFullscreenToggle = async (event: Event) => {
-    event.stopPropagation();
-    if (!fullscreenSupported) {
-      showToast('Fullscreen not supported on this device.', 'muted', { timeoutMs: 1800 });
-      return;
-    }
-    const ok = isFullscreen()
-      ? await exitFullscreen()
-      : await requestFullscreen(document.documentElement);
-    if (!ok) {
-      showToast('Fullscreen request was blocked.', 'muted', { timeoutMs: 1800 });
-      return;
-    }
-    // Some browsers/devices are flaky about firing fullscreenchange promptly.
-    updateFullscreenButtons();
-  };
-  fullscreenBtn.addEventListener('click', handleFullscreenToggle);
-  fullscreenOverlayBtn.addEventListener('click', handleFullscreenToggle);
-  fullscreenOverlayBtn.addEventListener('keydown', (event) => {
-    if (event.key === ' ' || event.key === 'Enter') {
-      event.stopPropagation();
-    }
-  });
-  updateFullscreenButtons();
-  cleanupFullscreen = onFullscreenChange(updateFullscreenButtons);
-  cleanupFullscreenAutohide = () => {
-    cancelFullscreenAutohide();
-    if (fullscreenAutohideRafId) window.cancelAnimationFrame(fullscreenAutohideRafId);
-    fullscreenAutohideRafId = 0;
-    document.removeEventListener('mousemove', handleFullscreenPointerActivity);
-  };
-  cleanupCursorAutohide = () => {
-    cancelCursorAutohide();
-    showCursor();
-    if (cursorAutohideRafId) window.cancelAnimationFrame(cursorAutohideRafId);
-    cursorAutohideRafId = 0;
-    document.removeEventListener('mousemove', handleCursorPointerActivity);
-  };
+      document.removeEventListener('mousemove', handleCursorPointerActivity);
+    };
+  }
 
   const onPopState = () => {
     const route = getRoute();
@@ -592,6 +668,18 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
 
   const closeInfoOverlay = () => infoOverlayEl.classList.add('hidden');
   const toggleInfoOverlay = () => infoOverlayEl.classList.toggle('hidden');
+  const syncInstallOverlay = () => {
+    const showIos = isIos();
+    const showAndroid = canPromptInstall();
+    installAndroidSectionEl.classList.toggle('hidden', !showAndroid);
+    installIosSectionEl.classList.toggle('hidden', !showIos);
+    installNoteEl.classList.toggle('hidden', showAndroid || showIos);
+  };
+  const closeInstallOverlay = () => installOverlayEl.classList.add('hidden');
+  const openInstallOverlay = () => {
+    syncInstallOverlay();
+    installOverlayEl.classList.remove('hidden');
+  };
   const closeSplitOverlay = () => splitOverlayEl.classList.add('hidden');
   const toggleSplitOverlay = () => splitOverlayEl.classList.toggle('hidden');
 
@@ -603,6 +691,25 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     // Click outside card closes
     if (e.target === infoOverlayEl) closeInfoOverlay();
   });
+  installCloseEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeInstallOverlay();
+  });
+  installOverlayEl.addEventListener('click', (e) => {
+    if (e.target === installOverlayEl) closeInstallOverlay();
+  });
+  installActionEl.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const outcome = await promptInstall();
+    closeInstallOverlay();
+    if (outcome === 'accepted') {
+      showToast('WOD Brains installed.', 'ok', { timeoutMs: 1600 });
+    } else if (outcome === 'dismissed') {
+      showToast('Install dismissed.', 'muted', { timeoutMs: 1400 });
+    } else {
+      showToast('Install not available on this device.', 'muted', { timeoutMs: 1600 });
+    }
+  });
   splitCloseEl.addEventListener('click', (e) => {
     e.stopPropagation();
     closeSplitOverlay();
@@ -612,6 +719,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   });
   const handleRunKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') closeInfoOverlay();
+    if (e.key === 'Escape') closeInstallOverlay();
     if (e.key === 'Escape') closeSplitOverlay();
   };
   onRunKeyDown = handleRunKeyDown;
@@ -716,6 +824,10 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   let lastHeaderTitle = '';
   let lastStatus = simDerived.status;
   runStatusForFullscreen = simDerived.status;
+  const dispatchRunStatus = (status: string) => {
+    document.dispatchEvent(new CustomEvent('wodbrains:run-status', { detail: { status } }));
+  };
+  dispatchRunStatus(simDerived.status);
   let lastCornerRenderKey = '';
   let lastCountdownLabel = '';
   let lastBreakRenderKey = '';
@@ -934,7 +1046,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     }
 
     // Hide floating FAB buttons when overlay is visible to avoid transparency stacking
-    fullscreenBtn.classList.toggle('hidden', showStartOverlay);
+    fullscreenBtn?.classList.toggle('hidden', showStartOverlay);
     muteBtn.classList.toggle('hidden', showStartOverlay);
     infoBtn.classList.toggle('hidden', showStartOverlay);
 
@@ -1487,6 +1599,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
           sounds.play('resume');
         }
         lastStatus = simDerived.status;
+        dispatchRunStatus(simDerived.status);
       }
 
       updateCountdownOverlay();

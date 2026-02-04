@@ -2002,6 +2002,90 @@ html.RunCursorHidden * {
   display: none;
 }
 
+/* Install overlay (PWA prompt/help) */
+.RunInstallOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-overlay);
+  z-index: 119;
+  padding: 24px;
+}
+
+.RunInstallOverlay.hidden {
+  display: none;
+}
+
+.RunInstallCard {
+  width: min(520px, 100%);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--bg-surface);
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+}
+
+.RunInstallHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.RunInstallTitle {
+  font-family: Rubik, Inter, system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.RunInstallBody {
+  display: grid;
+  gap: 14px;
+}
+
+.RunInstallSection {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+
+.RunInstallSectionTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.RunInstallText {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.RunInstallSteps {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.RunInstallAction {
+  justify-self: start;
+  min-width: 140px;
+}
+
+.RunInstallNote {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 /* Break overlay (manual advance) */
 .RunBreakOverlay {
   position: fixed;

@@ -13,9 +13,12 @@ test.describe('Share links', () => {
     await page.setViewportSize({ width: 390, height: 844 });
 
     await page.addInitScript(() => {
-      (navigator as any).share = async (data: any) => {
-        (window as any).__lastShare = data;
-      };
+      Object.defineProperty(navigator, 'share', {
+        value: async (data: any) => {
+          (window as any).__lastShare = data;
+        },
+        configurable: true,
+      });
     });
 
     await page.goto('/');
@@ -33,9 +36,12 @@ test.describe('Share links', () => {
 
   test('run share uses Web Share API', async ({ page }) => {
     await page.addInitScript(() => {
-      (navigator as any).share = async (data: any) => {
-        (window as any).__lastShare = data;
-      };
+      Object.defineProperty(navigator, 'share', {
+        value: async (data: any) => {
+          (window as any).__lastShare = data;
+        },
+        configurable: true,
+      });
     });
 
     await page.goto('/');

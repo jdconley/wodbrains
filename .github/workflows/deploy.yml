@@ -38,6 +38,9 @@ jobs:
       - name: Build web app
         run: pnpm --filter web build
 
+      - name: Verify PWA build artifacts
+        run: node scripts/check-pwa-build.mjs
+
       - name: Run tests
         # Run workspace tests sequentially in CI to avoid conflicts
         run: pnpm -r --workspace-concurrency=1 test

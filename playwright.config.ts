@@ -29,6 +29,7 @@ export default defineConfig({
     // host/resolution issues in CI. The workflow builds the web app before tests,
     // so the worker's assets binding can serve the compiled SPA.
     baseURL: isGitHubActions ? workerOrigin : webOrigin,
+    serviceWorkers: 'block',
     trace: 'retain-on-failure',
   },
   webServer: isGitHubActions
