@@ -91,6 +91,13 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
 
       <button class="RunFabBtn RunFullscreenBtn RunChrome hidden" id="runFullscreenBtn" type="button" aria-label="Enter fullscreen" aria-pressed="false"></button>
       <button class="RunFabBtn RunMuteBtn RunChrome hidden" id="runMuteBtn" type="button" aria-label="Mute sounds" aria-pressed="true"></button>
+      <button class="RunFabBtn RunInfoBtn RunChrome hidden" id="runInfoBtn" type="button" aria-label="Show workout plan">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+      </button>
 
       <div class="RunCornerInfo" id="runCornerInfo" aria-live="polite">
         <div class="RunCornerLine" id="runCornerLine"></div>
@@ -111,6 +118,13 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       <div class="RunStartOverlay" id="startOverlay" role="button" tabindex="0" aria-label="Tap anywhere to start workout">
         <button class="RunFabBtn RunOverlayFullscreenBtn" id="runOverlayFullscreenBtn" type="button" aria-label="Enter fullscreen" aria-pressed="false"></button>
         <button class="RunFabBtn RunOverlayMuteBtn" id="runOverlayMuteBtn" type="button" aria-label="Mute sounds" aria-pressed="true"></button>
+        <button class="RunFabBtn RunOverlayInfoBtn" id="runOverlayInfoBtn" type="button" aria-label="Show workout plan">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+        </button>
         <div class="RunStartOverlayContent">
           <div class="StartOverlayText">Tap anywhere to start</div>
           <button class="SecondaryBtn RunStartShareBtn" id="startShareBtn" type="button" aria-label="Invite friends to this workout">
@@ -246,6 +260,8 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   const fullscreenOverlayBtn = root.querySelector<HTMLButtonElement>('#runOverlayFullscreenBtn')!;
   const muteBtn = root.querySelector<HTMLButtonElement>('#runMuteBtn')!;
   const muteOverlayBtn = root.querySelector<HTMLButtonElement>('#runOverlayMuteBtn')!;
+  const infoBtn = root.querySelector<HTMLButtonElement>('#runInfoBtn')!;
+  const infoOverlayBtn = root.querySelector<HTMLButtonElement>('#runOverlayInfoBtn')!;
   const runHeaderEl = root.querySelector<HTMLElement>('#appHeader');
   runHeaderEl?.classList.add('RunChrome');
 
@@ -292,6 +308,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     void wakeLock.release();
     cleanupFullscreen();
     cleanupFullscreenAutohide();
+    cleanupCursorAutohide();
   };
 
   let definitionId: string | null = null;
@@ -300,8 +317,12 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   let cleanupFullscreen = () => {};
   let fullscreenAutohideTimeoutId = 0;
   let cleanupFullscreenAutohide = () => {};
+  let cursorAutohideTimeoutId = 0;
+  let cursorAutohideRafId = 0;
+  let cleanupCursorAutohide = () => {};
   let runStatusForFullscreen: string = 'idle';
   const runChromeAutohideMs = 3000;
+  const cursorAutohideMs = 2500;
 
   const soundSvgOn = `
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -341,6 +362,18 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   muteBtn.addEventListener('click', handleMuteToggle);
   muteOverlayBtn.addEventListener('click', handleMuteToggle);
   muteOverlayBtn.addEventListener('keydown', (event) => {
+    if (event.key === ' ' || event.key === 'Enter') {
+      event.stopPropagation();
+    }
+  });
+
+  const handleInfoToggle = (e: Event) => {
+    e.stopPropagation();
+    toggleInfoOverlay();
+  };
+  infoBtn.addEventListener('click', handleInfoToggle);
+  infoOverlayBtn.addEventListener('click', handleInfoToggle);
+  infoOverlayBtn.addEventListener('keydown', (event) => {
     if (event.key === ' ' || event.key === 'Enter') {
       event.stopPropagation();
     }
@@ -392,7 +425,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   let fullscreenAutohideActive = false;
   let fullscreenAutohideRafId = 0;
   const setRunChromeAutohide = (autohide: boolean) => {
-    for (const el of [fullscreenBtn, muteBtn, tapHintEl, runHeaderEl]) {
+    for (const el of [fullscreenBtn, muteBtn, infoBtn, tapHintEl, runHeaderEl]) {
       if (!el) continue;
       el.classList.toggle('autohide', autohide);
     }
@@ -446,11 +479,57 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     });
   };
   document.addEventListener('mousemove', handleFullscreenPointerActivity, { passive: true });
+  const runCursorHiddenRootClass = 'RunCursorHidden';
+  const cursorRootEl = document.documentElement;
+  const showCursor = () => {
+    runShellEl.classList.remove('cursorHidden');
+    cursorRootEl.classList.remove(runCursorHiddenRootClass);
+  };
+  const hideCursor = () => {
+    runShellEl.classList.add('cursorHidden');
+    cursorRootEl.classList.add(runCursorHiddenRootClass);
+  };
+  const cancelCursorAutohide = () => {
+    if (!cursorAutohideTimeoutId) return;
+    clearTimeout(cursorAutohideTimeoutId);
+    cursorAutohideTimeoutId = 0;
+  };
+  const wantsCursorAutohide = () => isFullscreen();
+  const startCursorAutohideTimer = () => {
+    cancelCursorAutohide();
+    cursorAutohideTimeoutId = window.setTimeout(() => {
+      if (wantsCursorAutohide()) {
+        hideCursor();
+      }
+      cursorAutohideTimeoutId = 0;
+    }, cursorAutohideMs);
+  };
+  const updateCursorAutohide = (forceReshow = false) => {
+    if (!wantsCursorAutohide()) {
+      cancelCursorAutohide();
+      showCursor();
+      return;
+    }
+    if (forceReshow || !cursorAutohideTimeoutId) {
+      showCursor();
+      startCursorAutohideTimer();
+    }
+  };
+  const handleCursorPointerActivity = () => {
+    if (!wantsCursorAutohide()) return;
+    if (cursorAutohideRafId) return;
+    cursorAutohideRafId = window.requestAnimationFrame(() => {
+      cursorAutohideRafId = 0;
+      updateCursorAutohide(true);
+    });
+  };
+  document.addEventListener('mousemove', handleCursorPointerActivity, { passive: true });
   const updateFullscreenButtons = () => {
     const active = isFullscreen();
     setFullscreenButtonState(fullscreenBtn, active);
     setFullscreenButtonState(fullscreenOverlayBtn, active);
     updateFullscreenAutohide(true);
+    updateCursorAutohide(true);
   };
   const handleFullscreenToggle = async (event: Event) => {
     event.stopPropagation();
@@ -482,6 +561,13 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     if (fullscreenAutohideRafId) window.cancelAnimationFrame(fullscreenAutohideRafId);
     fullscreenAutohideRafId = 0;
     document.removeEventListener('mousemove', handleFullscreenPointerActivity);
+  };
+  cleanupCursorAutohide = () => {
+    cancelCursorAutohide();
+    showCursor();
+    if (cursorAutohideRafId) window.cancelAnimationFrame(cursorAutohideRafId);
+    cursorAutohideRafId = 0;
+    document.removeEventListener('mousemove', handleCursorPointerActivity);
   };
 
   const onPopState = () => {
@@ -847,9 +933,10 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       startOverlayEl.classList.add('hidden');
     }
 
-    // Hide floating fullscreen button when overlay is visible to avoid transparency stacking
+    // Hide floating FAB buttons when overlay is visible to avoid transparency stacking
     fullscreenBtn.classList.toggle('hidden', showStartOverlay);
     muteBtn.classList.toggle('hidden', showStartOverlay);
+    infoBtn.classList.toggle('hidden', showStartOverlay);
 
     // Show finish summary when timer completes
     if (status === 'finished' && !finishSummaryShown) {
@@ -1129,7 +1216,8 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       const repCount = displaySplits.length;
       const latestSplit = displaySplits[displaySplits.length - 1];
       const counterList = (simDerived.counters ?? []).filter((counter) => {
-        if (counter.target == null) return true;
+        // Only show bounded counters with more than 1 round (e.g., "3 rounds for time")
+        // Don't show for: single-round (target === 1), unbounded/manual (target === null/undefined)
         return typeof counter.target === 'number' && counter.target > 1;
       });
       const countersKey = counterList
@@ -1137,55 +1225,19 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
         .join('|');
       const status = simDerived.status;
       const controlsDisabled = !canControl;
-      const shouldShowRoundCounters = !!(simDerived.isAutoAdvancing && counterList.length > 0);
-      const shouldShowInfoButton = !!(timerPlan && shouldShowRoundCounters);
-      const shouldShowRepTop = !shouldShowRoundCounters && repCount > 0;
-      const shouldShowRepBottom = shouldShowRoundCounters && repCount > 0;
+      // Rep counter always at top when available
+      const shouldShowRepTop = repCount > 0;
+      // Round counters at bottom only for AMRAP/countdown modes
+      const shouldShowRoundBottom = !!(simDerived.isAutoAdvancing && counterList.length > 0);
       const splitKey = latestSplit
         ? `${latestSplit.atMs}:${latestSplit.elapsedMs}:${latestSplit.deltaMs}`
         : '';
-      const countersRenderKey = `${countersKey}|round:${shouldShowRoundCounters ? 'yes' : 'no'}|repTop:${shouldShowRepTop ? 'yes' : 'no'}|repBottom:${shouldShowRepBottom ? 'yes' : 'no'}|rep:${repCount}|split:${splitKey}|info:${shouldShowInfoButton ? 'yes' : 'no'}|status:${status}`;
+      const countersRenderKey = `${countersKey}|roundBottom:${shouldShowRoundBottom ? 'yes' : 'no'}|repTop:${shouldShowRepTop ? 'yes' : 'no'}|rep:${repCount}|split:${splitKey}|status:${status}`;
       if (countersRenderKey !== lastCountersRenderKey) {
         lastCountersRenderKey = countersRenderKey;
-        // --- Top meta: counters + superscript info ---
+        // --- Top meta: always rep counter + inline split ---
         timerMetaTopEl.innerHTML = '';
-        if (shouldShowRoundCounters) {
-          const labelText = counterList
-            .map((counter) =>
-              counter.target == null
-                ? `${counter.current}`
-                : `${counter.current}/${counter.target}`,
-            )
-            .join(' · ');
-
-          const line = document.createElement('div');
-          line.className = 'TimerMetaLine';
-
-          const textEl = document.createElement('span');
-          textEl.className = 'TimerMetaText';
-          textEl.textContent = labelText;
-          line.appendChild(textEl);
-
-          if (shouldShowInfoButton) {
-            const infoBtn = document.createElement('button');
-            infoBtn.type = 'button';
-            infoBtn.className = 'TimerInfoBtn TimerInfoBtn--sup';
-            infoBtn.dataset.action = 'toggle-info';
-            infoBtn.title = 'Info';
-            infoBtn.setAttribute('aria-label', 'Show workout plan');
-            infoBtn.innerHTML = `
-              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="16" x2="12" y2="12"></line>
-                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-              </svg>
-            `;
-            line.appendChild(infoBtn);
-          }
-
-          timerMetaTopEl.appendChild(line);
-        } else if (shouldShowRepTop) {
-          // Show rep counter when rounds aren't displayed.
+        if (shouldShowRepTop) {
           const line = document.createElement('div');
           line.className = 'TimerMetaLine';
 
@@ -1195,7 +1247,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
           textEl.dataset.testid = 'rep-counter';
           line.appendChild(textEl);
 
-          // Add split time next to rep counter to save vertical space
+          // Add split time next to rep counter
           if (latestSplit) {
             const splitBtn = document.createElement('button');
             splitBtn.type = 'button';
@@ -1210,30 +1262,25 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
           timerMetaTopEl.appendChild(line);
         }
 
-        // --- Bottom meta: large pause/resume ---
+        // --- Bottom meta: round counters (for AMRAP/countdown) + controls ---
         timerMetaBottomEl.innerHTML = '';
         const metaStack = document.createElement('div');
         metaStack.className = 'TimerMetaStack';
 
-        // Only show split time in bottom meta when rep counter is NOT in top meta
-        // (i.e., when we have round counters and rep is shown at bottom as "Rep X")
-        if (latestSplit && !shouldShowRepTop) {
-          const splitBtn = document.createElement('button');
-          splitBtn.type = 'button';
-          splitBtn.className = 'TimerSplitBtn';
-          splitBtn.dataset.action = 'toggle-splits';
-          splitBtn.dataset.testid = 'split-time';
-          splitBtn.setAttribute('aria-label', 'Show split times');
-          splitBtn.textContent = `+${formatTimeMs(latestSplit.deltaMs, { showTenths: true })}`;
-          metaStack.appendChild(splitBtn);
-        }
+        // Show round counters at bottom for AMRAP/countdown modes
+        if (shouldShowRoundBottom) {
+          const labelText = counterList
+            .map((counter) =>
+              counter.target == null
+                ? `${counter.current}`
+                : `${counter.current}/${counter.target}`,
+            )
+            .join(' · ');
 
-        if (shouldShowRepBottom) {
-          const repEl = document.createElement('div');
-          repEl.className = 'TimerRepPill';
-          repEl.dataset.testid = 'rep-counter';
-          repEl.textContent = `Rep ${repCount}`;
-          metaStack.appendChild(repEl);
+          const roundEl = document.createElement('div');
+          roundEl.className = 'TimerRoundLabel';
+          roundEl.textContent = labelText;
+          metaStack.appendChild(roundEl);
         }
 
         if (!canControl && (status === 'paused' || status === 'finished')) {

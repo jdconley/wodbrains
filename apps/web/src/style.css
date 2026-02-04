@@ -163,6 +163,14 @@
   overflow-y: auto;
 }
 
+.RunInfoCard,
+.RunSplitCard,
+.RunFinishCard {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
 html,
 body {
   height: 100%;
@@ -988,6 +996,9 @@ body {
   position: relative;
   background: var(--bg-deep);
   animation: pageIn 0.2s ease-out;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .RunShell .AppHeader {
@@ -1016,6 +1027,22 @@ body {
   align-items: center;
   justify-content: center;
   user-select: none;
+}
+
+.RunShell button,
+.RunShell [role='button'] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.RunShell.cursorHidden,
+.RunShell.cursorHidden * {
+  cursor: none;
+}
+
+html.RunCursorHidden,
+html.RunCursorHidden * {
+  cursor: none !important;
 }
 
 .Timer {
@@ -1099,6 +1126,16 @@ body {
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
+  animation: repBump 0.18s ease;
+}
+
+.TimerRoundLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--timerMetaSize) * 0.6);
+  font-weight: 700;
+  color: var(--text-muted);
   animation: repBump 0.18s ease;
 }
 
@@ -1756,11 +1793,22 @@ body {
   z-index: 118; /* Above countdown (110) and rep celebration (115), below finish (120) */
 }
 
+.RunInfoBtn {
+  position: fixed;
+  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  right: calc(var(--space-md) + 44px + var(--space-sm));
+  z-index: 118; /* Above countdown (110) and rep celebration (115), below finish (120) */
+}
+
 .RunFullscreenBtn.hidden {
   display: none;
 }
 
 .RunMuteBtn.hidden {
+  display: none;
+}
+
+.RunInfoBtn.hidden {
   display: none;
 }
 
@@ -1770,6 +1818,11 @@ body {
 }
 
 .RunMuteBtn.autohide {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.RunInfoBtn.autohide {
   opacity: 0;
   pointer-events: none;
 }
@@ -1785,6 +1838,13 @@ body {
   position: absolute;
   bottom: max(var(--space-md), env(safe-area-inset-bottom));
   right: var(--space-md);
+  z-index: 1;
+}
+
+.RunOverlayInfoBtn {
+  position: absolute;
+  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  right: calc(var(--space-md) + 44px + var(--space-sm));
   z-index: 1;
 }
 
@@ -1934,7 +1994,7 @@ body {
   align-items: center;
   justify-content: center;
   background: var(--bg-overlay);
-  z-index: 105;
+  z-index: 119; /* Above start overlay (100), countdown (110), rep celebration (115), FABs (118) */
   padding: 24px;
 }
 

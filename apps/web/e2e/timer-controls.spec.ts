@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { fastStartRun, startRunFromDefinition } from './helpers/run';
 import { expectPillLabelButton, expectPillLabelButtonFlatOnHover } from './helpers/button-styles';
 import { seedLegalAcceptance } from './helpers/legal';
@@ -13,6 +13,18 @@ const parseTimerMs = (value: string | null) => {
   const tenths = Number.parseInt(tenthsPart ?? '0', 10);
   if (!Number.isFinite(mins) || !Number.isFinite(secs) || !Number.isFinite(tenths)) return 0;
   return (mins * 60 + secs) * 1000 + tenths * 100;
+};
+
+const dragSelect = async (page: Page, selector: string) => {
+  const target = page.locator(selector);
+  const box = await target.boundingBox();
+  expect(box).toBeTruthy();
+  if (!box) return;
+  const { x, y, width, height } = box;
+  await page.mouse.move(x + 4, y + height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x + width - 4, y + height / 2);
+  await page.mouse.up();
 };
 
 test.beforeEach(async ({ page }) => {
@@ -221,5 +233,35 @@ test.describe('Finish summary overlay', () => {
 
     const splitRows = page.locator('.RunFinishSplitRow');
     await expect(splitRows).toHaveCount(3);
+  });
+});
+
+test.describe('Run view selection behavior', () => {
+  test('timer and buttons are not selectable, finish time is selectable', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#input').fill('For time: 12 push-ups');
+    await page.locator('#generate').click();
+
+    await startRunFromDefinition(page);
+    await expect(page.locator('#startOverlay')).toBeVisible();
+    await fastStartRun(page);
+
+    await dragSelect(page, '#timerValue');
+    const timerSelection = await page.evaluate(() => window.getSelection()?.toString() ?? '');
+    expect(timerSelection).toBe('');
+
+    await page.locator('#pause').click();
+    await page.locator('[data-action="stop"]').click();
+    const finishOverlay = page.locator('[data-testid="finish-overlay"]');
+    await expect(finishOverlay).toBeVisible();
+
+    await dragSelect(page, '#finishTime');
+    const finishSelection = await page.evaluate(() => window.getSelection()?.toString() ?? '');
+    expect(finishSelection).toContain(':');
+
+    await page.evaluate(() => window.getSelection()?.removeAllRanges());
+    await dragSelect(page, '#finishDone');
+    const buttonSelection = await page.evaluate(() => window.getSelection()?.toString() ?? '');
+    expect(buttonSelection).toBe('');
   });
 });

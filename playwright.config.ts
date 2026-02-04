@@ -13,6 +13,9 @@ const webPort = Number(process.env.E2E_WEB_PORT ?? 5174);
 const workerOrigin = `http://${workerHost}:${workerPort}`;
 const webOrigin = `http://${webHost}:${webPort}`;
 const workerHealthUrl = `${workerOrigin}/api/ping`;
+// Reusing an existing server can make E2E tests flaky (e.g. when `pnpm dev` is already
+// running on the E2E ports but without `STUB_PARSE=1`). Keep reuse opt-in.
+const reuseExistingServer = process.env.E2E_REUSE_EXISTING_SERVER === '1';
 
 export default defineConfig({
   testDir: 'apps/web/e2e',
@@ -45,7 +48,7 @@ export default defineConfig({
             `pnpm --filter worker db:migrate:local && ` +
             `pnpm --filter worker exec wrangler dev --local --ip ${workerHost} --port ${workerPort} --var STUB_PARSE:1`,
           url: workerHealthUrl,
-          reuseExistingServer: !process.env.CI,
+          reuseExistingServer,
           timeout: 120_000,
         },
         {
@@ -54,7 +57,7 @@ export default defineConfig({
             // flags directly (some runners treat `--` as an arg terminator).
             `pnpm --filter web exec vite --host ${webListenHost} --port ${webPort} --strictPort`,
           url: webOrigin,
-          reuseExistingServer: !process.env.CI,
+          reuseExistingServer,
           timeout: 120_000,
           env: {
             VITE_API_ORIGIN: workerOrigin,
