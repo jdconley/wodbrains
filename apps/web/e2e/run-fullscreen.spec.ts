@@ -59,22 +59,33 @@ test('fullscreen button auto-hides while running and reappears on pause / mouse 
   const runShell = page.locator('#runShell');
   await expect(runShell).toHaveClass(/running/);
 
+  const header = page.locator('#appHeader');
   const floatingBtn = page.locator('#runFullscreenBtn');
+  const muteBtn = page.locator('#runMuteBtn');
   await expect(floatingBtn).not.toHaveClass(/\bhidden\b/);
+  await expect(muteBtn).not.toHaveClass(/\bhidden\b/);
+  await expect(header).not.toHaveClass(/\bautohide\b/);
 
   // Auto-hide after a few seconds while fullscreen + running
   await expect(floatingBtn).toHaveClass(/\bautohide\b/, { timeout: 8000 });
+  await expect(muteBtn).toHaveClass(/\bautohide\b/, { timeout: 8000 });
+  await expect(header).toHaveClass(/\bautohide\b/, { timeout: 8000 });
 
   // Pausing should make the button visible again
   await page.locator('#pause').click();
   await expect(runShell).not.toHaveClass(/running/);
   await expect(floatingBtn).not.toHaveClass(/\bautohide\b/);
+  await expect(muteBtn).not.toHaveClass(/\bautohide\b/);
+  await expect(header).not.toHaveClass(/\bautohide\b/);
 
   // Resuming should allow auto-hide again, and mouse move should bring it back
   await page.locator('#pause').click();
   await expect(runShell).toHaveClass(/running/);
   await expect(floatingBtn).toHaveClass(/\bautohide\b/, { timeout: 8000 });
+  await expect(muteBtn).toHaveClass(/\bautohide\b/, { timeout: 8000 });
 
   await page.mouse.move(24, 24);
   await expect(floatingBtn).not.toHaveClass(/\bautohide\b/);
+  await expect(muteBtn).not.toHaveClass(/\bautohide\b/);
+  await expect(header).not.toHaveClass(/\bautohide\b/);
 });

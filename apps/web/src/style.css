@@ -189,7 +189,8 @@ body {
   align-items: center;
   justify-content: space-between;
   align-items: center;
-  /* Keep 44px hit targets, align icon glyphs to content inset edge */
+  /* Keep 44px hit targets, center icon glyphs */
+  --app-header-side: 56px;
   padding: var(--space-md) var(--content-pad-x);
   padding-bottom: 0;
   transition: opacity 0.3s ease-out;
@@ -204,7 +205,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  width: 44px;
+  width: 32px;
   flex: 0 0 auto;
 }
 
@@ -216,35 +217,40 @@ body {
   align-items: center;
   justify-content: center;
   min-width: 0;
-  max-width: calc(100% - 160px);
+  max-width: calc(100% - var(--app-header-side, 80px) - var(--app-header-side, 80px));
 }
 
 .AppHeaderBackBtn {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  width: 44px;
-  height: 44px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-full);
+  border-radius: 0;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   transition:
     color 0.15s,
-    background-color 0.15s;
+    opacity 0.15s,
+    transform 0.15s;
 }
 
 .AppHeaderBackBtn:hover {
   color: var(--text);
   background: transparent;
+  opacity: 0.9;
 }
 
 .AppHeaderBackBtn:active {
   transform: translateY(1px);
   color: var(--text);
   background: transparent;
+  opacity: 0.75;
 }
 
 .AppHeaderBackBtn svg {
@@ -254,40 +260,44 @@ body {
 .AppHeaderIconBtn {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  width: 44px;
-  height: 44px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-full);
+  border-radius: 0;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   transition:
     color 0.15s,
-    background-color 0.15s,
+    opacity 0.15s,
     transform 0.15s;
 }
 
 .AppHeaderIconBtn:hover {
   color: var(--text);
   background: transparent;
+  opacity: 0.9;
 }
 
 .AppHeaderIconBtn:active {
   transform: translateY(1px);
   color: var(--text);
   background: transparent;
+  opacity: 0.75;
 }
 
 /* Only show hover backgrounds on devices that actually hover */
 @media (hover: hover) {
   .AppHeaderBackBtn:hover {
-    background: var(--bg-elevated);
+    background: transparent;
   }
 
   .AppHeaderIconBtn:hover {
-    background: var(--bg-elevated);
+    background: transparent;
   }
 }
 
@@ -302,7 +312,7 @@ body {
   line-height: 1.1;
   color: var(--text);
   text-align: center;
-  padding: 0 var(--space-xs);
+  padding: 0 var(--space-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -385,11 +395,11 @@ body {
 }
 
 .AppHeaderRight {
-  min-width: 44px;
+  min-width: 32px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 12px;
   flex: 0 0 auto;
 }
 
@@ -1705,10 +1715,30 @@ body {
 }
 
 /* Fullscreen toggle */
-.RunFullscreenBtn,
-.RunOverlayFullscreenBtn {
+.RunFabBtn {
+  display: flex;
+  align-items: center;
   justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
   background: var(--bg-elevated);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    opacity 0.3s ease-out,
+    background-color 0.15s,
+    transform 0.15s;
+}
+
+/* Shared chrome fade (fullscreen running) */
+.RunChrome.autohide {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .RunFullscreenBtn {
@@ -1719,11 +1749,27 @@ body {
   transition: opacity 0.3s ease-out;
 }
 
+.RunMuteBtn {
+  position: fixed;
+  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  right: var(--space-md);
+  z-index: 118; /* Above countdown (110) and rep celebration (115), below finish (120) */
+}
+
 .RunFullscreenBtn.hidden {
   display: none;
 }
 
+.RunMuteBtn.hidden {
+  display: none;
+}
+
 .RunFullscreenBtn.autohide {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.RunMuteBtn.autohide {
   opacity: 0;
   pointer-events: none;
 }
@@ -1735,36 +1781,58 @@ body {
   z-index: 1;
 }
 
+.RunOverlayMuteBtn {
+  position: absolute;
+  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  right: var(--space-md);
+  z-index: 1;
+}
+
 .RunFullscreenBtn--disabled {
   opacity: 0.5;
   cursor: default;
 }
 
 @media (hover: hover) {
-  .RunFullscreenBtn:hover,
-  .RunOverlayFullscreenBtn:hover {
+  .RunFabBtn:hover {
     background: var(--bg-surface);
     color: var(--text);
   }
 }
 
+.RunFabBtn:active {
+  transform: translateY(1px);
+}
+
 /* Tap hint (fades in after timer starts, positioned to not occlude timer) */
 .RunTapHint {
   position: fixed;
-  bottom: 100px;
-  left: 0;
-  right: 0;
+  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  left: calc(var(--space-md) + 44px + var(--space-sm));
+  right: calc(var(--space-md) + 44px + var(--space-sm));
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-sm);
   text-align: center;
   font-size: 14px;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   opacity: 0;
-  transition: opacity 1s ease-in-out;
+  transition: opacity 0.3s ease-out;
   pointer-events: none;
   z-index: 50;
 }
 
 .RunTapHint.visible {
   opacity: 1;
+}
+
+.RunTapHint.autohide {
+  opacity: 0 !important;
 }
 
 /* Rep celebration overlay (big animated display when counting reps) */

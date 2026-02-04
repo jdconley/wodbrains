@@ -1,5 +1,7 @@
 import { navigate, getRoute, type Route } from '../router';
 
+export const BROWSER_BACK_TARGET = '__browser_back__';
+
 /**
  * Get the back navigation target based on the current route.
  * Returns null if at root (no back button should be shown).
@@ -115,6 +117,28 @@ export function appHeader(options: AppHeaderOptions = {}): string {
 }
 
 /**
+ * Ensure the center slot doesn't overlap left/right actions.
+ * Uses an iOS-style layout rule: reserve symmetric space equal to the
+ * larger of the left/right widths.
+ */
+export function syncAppHeaderLayout(root: HTMLElement): void {
+  const header = root.querySelector<HTMLElement>('#appHeader');
+  if (!header) return;
+
+  const backSlot = header.querySelector<HTMLElement>('.AppHeaderBack');
+  const rightSlot = header.querySelector<HTMLElement>('.AppHeaderRight');
+  if (!backSlot || !rightSlot) return;
+
+  const leftWidth = backSlot.getBoundingClientRect().width;
+  const rightWidth = rightSlot.getBoundingClientRect().width;
+  const baseSide =
+    Number.parseFloat(getComputedStyle(header).getPropertyValue('--app-header-side')) || 56;
+  const side = Math.ceil(Math.max(baseSide, leftWidth, rightWidth));
+
+  header.style.setProperty('--app-header-side', `${side}px`);
+}
+
+/**
  * Set up event listeners for the app header.
  * Call this after rendering the page.
  */
@@ -143,6 +167,14 @@ export function setupAppHeader(root: HTMLElement, options: AppHeaderOptions = {}
     try {
       const ok = await runBeforeBack();
       if (!ok) return;
+      if (target === BROWSER_BACK_TARGET) {
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          navigate('/');
+        }
+        return;
+      }
       navigate(target);
     } finally {
       navigating = false;
@@ -167,6 +199,8 @@ export function setupAppHeader(root: HTMLElement, options: AppHeaderOptions = {}
   if (brandLink) {
     brandLink.addEventListener('click', handleLogoClick);
   }
+
+  syncAppHeaderLayout(root);
 }
 
 /**

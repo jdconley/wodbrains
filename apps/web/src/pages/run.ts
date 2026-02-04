@@ -22,6 +22,8 @@ import { type DisplayNode, timerPlanSegmentsToDisplayNodes } from '../display/co
 import {
   appHeader,
   setupAppHeader,
+  BROWSER_BACK_TARGET,
+  syncAppHeaderLayout,
   setAppHeaderTitle,
   setAppHeaderVisible,
 } from '../components/header';
@@ -67,17 +69,10 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   root.innerHTML = `
     <div class="RunShell" id="runShell">
       ${appHeader({
-        backTarget: '/',
+        backTarget: BROWSER_BACK_TARGET,
         centerSlot: 'title',
         titleWithLogo: true,
         rightHtml: `
-          <button class="AppHeaderIconBtn RunHeaderAction" id="runHeaderSound" type="button" aria-label="Mute sounds" aria-pressed="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-              <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
-              <path d="M19 6a8.5 8.5 0 0 1 0 12"></path>
-            </svg>
-          </button>
           <button class="AppHeaderIconBtn RunHeaderAction RunHeaderAction--hidden" id="runHeaderShare" type="button" aria-label="Invite friends to this workout">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 3v12"/>
@@ -94,7 +89,8 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
         `,
       })}
 
-      <button class="AppHeaderIconBtn RunFullscreenBtn hidden" id="runFullscreenBtn" type="button" aria-label="Enter fullscreen" aria-pressed="false"></button>
+      <button class="RunFabBtn RunFullscreenBtn RunChrome hidden" id="runFullscreenBtn" type="button" aria-label="Enter fullscreen" aria-pressed="false"></button>
+      <button class="RunFabBtn RunMuteBtn RunChrome hidden" id="runMuteBtn" type="button" aria-label="Mute sounds" aria-pressed="true"></button>
 
       <div class="RunCornerInfo" id="runCornerInfo" aria-live="polite">
         <div class="RunCornerLine" id="runCornerLine"></div>
@@ -113,7 +109,8 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
 
       <!-- Start overlay (shown when idle) -->
       <div class="RunStartOverlay" id="startOverlay" role="button" tabindex="0" aria-label="Tap anywhere to start workout">
-        <button class="AppHeaderIconBtn RunOverlayFullscreenBtn" id="runOverlayFullscreenBtn" type="button" aria-label="Enter fullscreen" aria-pressed="false"></button>
+        <button class="RunFabBtn RunOverlayFullscreenBtn" id="runOverlayFullscreenBtn" type="button" aria-label="Enter fullscreen" aria-pressed="false"></button>
+        <button class="RunFabBtn RunOverlayMuteBtn" id="runOverlayMuteBtn" type="button" aria-label="Mute sounds" aria-pressed="true"></button>
         <div class="RunStartOverlayContent">
           <div class="StartOverlayText">Tap anywhere to start</div>
           <button class="SecondaryBtn RunStartShareBtn" id="startShareBtn" type="button" aria-label="Invite friends to this workout">
@@ -143,7 +140,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       </div>
 
       <!-- Tap hint (fades in after timer starts) -->
-      <div class="RunTapHint" id="tapHint" aria-hidden="true">Tap anywhere to count</div>
+      <div class="RunTapHint RunChrome" id="tapHint" aria-hidden="true">Tap anywhere to count</div>
 
       <!-- Info overlay (group details) -->
       <div class="RunInfoOverlay hidden" id="infoOverlay" role="dialog" aria-modal="true" aria-labelledby="infoTitle">
@@ -243,15 +240,18 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   const finishRepsEl = root.querySelector<HTMLDivElement>('#finishReps')!;
   const finishSplitsListEl = root.querySelector<HTMLDivElement>('#finishSplitsList')!;
   const finishDoneEl = root.querySelector<HTMLButtonElement>('#finishDone')!;
-  const headerSoundEl = root.querySelector<HTMLButtonElement>('#runHeaderSound')!;
   const headerShareEl = root.querySelector<HTMLButtonElement>('#runHeaderShare')!;
   const headerEditEl = root.querySelector<HTMLButtonElement>('#runHeaderEdit')!;
   const fullscreenBtn = root.querySelector<HTMLButtonElement>('#runFullscreenBtn')!;
   const fullscreenOverlayBtn = root.querySelector<HTMLButtonElement>('#runOverlayFullscreenBtn')!;
+  const muteBtn = root.querySelector<HTMLButtonElement>('#runMuteBtn')!;
+  const muteOverlayBtn = root.querySelector<HTMLButtonElement>('#runOverlayMuteBtn')!;
+  const runHeaderEl = root.querySelector<HTMLElement>('#appHeader');
+  runHeaderEl?.classList.add('RunChrome');
 
   // Set up header with cleanup callback
   setupAppHeader(root, {
-    backTarget: '/',
+    backTarget: BROWSER_BACK_TARGET,
     onBeforeBack: () => {
       stopLoops();
       if (ws) ws.close();
@@ -259,10 +259,26 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     },
   });
 
+  let onRunPopState: (() => void) | null = null;
+  let onRunPageHide: (() => void) | null = null;
+  let onRunKeyDown: ((e: KeyboardEvent) => void) | null = null;
+  let onRunOnline: (() => void) | null = null;
+  const cleanupRunWindowListeners = () => {
+    if (onRunPopState) window.removeEventListener('popstate', onRunPopState);
+    if (onRunPageHide) window.removeEventListener('pagehide', onRunPageHide);
+    if (onRunKeyDown) window.removeEventListener('keydown', onRunKeyDown);
+    if (onRunOnline) window.removeEventListener('online', onRunOnline);
+    onRunPopState = null;
+    onRunPageHide = null;
+    onRunKeyDown = null;
+    onRunOnline = null;
+  };
+
   // Ensure we close the WebSocket promptly when navigating away from the run route.
   // Without this, the Durable Object will keep counting the connection as "online"
   // until the browser eventually closes the socket.
   const cleanupLiveConnection = () => {
+    cleanupRunWindowListeners();
     stopLoops();
     if (ws) {
       try {
@@ -285,6 +301,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   let fullscreenAutohideTimeoutId = 0;
   let cleanupFullscreenAutohide = () => {};
   let runStatusForFullscreen: string = 'idle';
+  const runChromeAutohideMs = 3000;
 
   const soundSvgOn = `
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -302,18 +319,31 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   `;
   const updateSoundButton = () => {
     const on = sounds.isEnabled();
-    headerSoundEl.setAttribute('aria-pressed', on ? 'true' : 'false');
-    headerSoundEl.setAttribute('aria-label', on ? 'Mute sounds' : 'Unmute sounds');
-    headerSoundEl.title = on ? 'Mute' : 'Unmute';
-    headerSoundEl.innerHTML = on ? soundSvgOn : soundSvgOff;
+    const label = on ? 'Mute sounds' : 'Unmute sounds';
+    const title = on ? 'Mute' : 'Unmute';
+    const pressed = on ? 'true' : 'false';
+    const svg = on ? soundSvgOn : soundSvgOff;
+    for (const btn of [muteBtn, muteOverlayBtn]) {
+      btn.setAttribute('aria-pressed', pressed);
+      btn.setAttribute('aria-label', label);
+      btn.title = title;
+      btn.innerHTML = svg;
+    }
   };
   updateSoundButton();
 
-  headerSoundEl.addEventListener('click', (e) => {
+  const handleMuteToggle = (e: Event) => {
     e.stopPropagation();
     const on = sounds.toggleEnabled();
     if (on) initSounds();
     updateSoundButton();
+  };
+  muteBtn.addEventListener('click', handleMuteToggle);
+  muteOverlayBtn.addEventListener('click', handleMuteToggle);
+  muteOverlayBtn.addEventListener('keydown', (event) => {
+    if (event.key === ' ' || event.key === 'Enter') {
+      event.stopPropagation();
+    }
   });
 
   headerShareEl.addEventListener('click', (e) => {
@@ -358,14 +388,20 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     button.title = label;
     button.innerHTML = active ? fullscreenSvgExit : fullscreenSvgEnter;
   };
-  const fullscreenAutohideMs = 3000;
+  const fullscreenAutohideMs = runChromeAutohideMs;
   let fullscreenAutohideActive = false;
   let fullscreenAutohideRafId = 0;
+  const setRunChromeAutohide = (autohide: boolean) => {
+    for (const el of [fullscreenBtn, muteBtn, tapHintEl, runHeaderEl]) {
+      if (!el) continue;
+      el.classList.toggle('autohide', autohide);
+    }
+  };
   const showFullscreenBtn = () => {
-    fullscreenBtn.classList.remove('autohide');
+    setRunChromeAutohide(false);
   };
   const hideFullscreenBtn = () => {
-    fullscreenBtn.classList.add('autohide');
+    setRunChromeAutohide(true);
   };
   const cancelFullscreenAutohide = () => {
     if (!fullscreenAutohideTimeoutId) return;
@@ -463,6 +499,8 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     window.removeEventListener('pagehide', onPageHide);
   };
 
+  onRunPopState = onPopState;
+  onRunPageHide = onPageHide;
   window.addEventListener('popstate', onPopState);
   window.addEventListener('pagehide', onPageHide);
 
@@ -486,10 +524,12 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   splitOverlayEl.addEventListener('click', (e) => {
     if (e.target === splitOverlayEl) closeSplitOverlay();
   });
-  window.addEventListener('keydown', (e) => {
+  const handleRunKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') closeInfoOverlay();
     if (e.key === 'Escape') closeSplitOverlay();
-  });
+  };
+  onRunKeyDown = handleRunKeyDown;
+  window.addEventListener('keydown', handleRunKeyDown);
 
   const renderDisplayNodes = (nodes: DisplayNode[], parent: HTMLElement): void => {
     for (const node of nodes) {
@@ -638,7 +678,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     tapHintTimeoutId = window.setTimeout(() => {
       tapHintEl.classList.remove('visible');
       tapHintTimeoutId = 0;
-    }, 4000);
+    }, runChromeAutohideMs);
   };
 
   // Rep celebration overlay timeout
@@ -764,6 +804,8 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     void shareRunLink();
   });
 
+  let lastHeaderActionsKey = '';
+
   breakContinueEl.addEventListener('click', (e) => {
     e.stopPropagation();
     initSounds();
@@ -782,15 +824,20 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       runShellEl.classList.remove('running');
     }
 
-    // Show/hide header based on running status
-    setAppHeaderVisible(root, status !== 'running');
+    // Show/hide header based on running status.
+    // When fullscreen + running, keep it visible long enough to fade out
+    // in sync with the bottom chrome (mute/fullscreen + tap hint).
+    setAppHeaderVisible(root, status !== 'running' || isFullscreen());
 
     const showHeaderActions = status === 'paused';
-    headerShareEl.classList.toggle('RunHeaderAction--hidden', !showHeaderActions);
-    headerEditEl.classList.toggle(
-      'RunHeaderAction--hidden',
-      !(showHeaderActions && canControl && !!definitionId),
-    );
+    const showEditAction = showHeaderActions && canControl && !!definitionId;
+    const headerActionsKey = `${showHeaderActions ? '1' : '0'}|${showEditAction ? '1' : '0'}`;
+    if (headerActionsKey !== lastHeaderActionsKey) {
+      lastHeaderActionsKey = headerActionsKey;
+      headerShareEl.classList.toggle('RunHeaderAction--hidden', !showHeaderActions);
+      headerEditEl.classList.toggle('RunHeaderAction--hidden', !showEditAction);
+      syncAppHeaderLayout(root);
+    }
 
     // Show/hide start overlay based on idle status and schedule state
     const showStartOverlay = status === 'idle' && !hasScheduledStart && canControl;
@@ -802,6 +849,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
 
     // Hide floating fullscreen button when overlay is visible to avoid transparency stacking
     fullscreenBtn.classList.toggle('hidden', showStartOverlay);
+    muteBtn.classList.toggle('hidden', showStartOverlay);
 
     // Show finish summary when timer completes
     if (status === 'finished' && !finishSummaryShown) {
@@ -1665,13 +1713,16 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     }
   });
 
-  window.addEventListener('online', () => {
+  const handleOnline = () => {
     void flushPending();
-  });
+  };
+  onRunOnline = handleOnline;
+  window.addEventListener('online', handleOnline);
 
   try {
     await requireLegalConsent({ context: 'run' });
   } catch {
+    cleanupLiveConnection();
     navigate('/');
     showToast('Accept Terms & Privacy to view a run.', 'error');
     return;
