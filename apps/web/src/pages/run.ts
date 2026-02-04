@@ -28,6 +28,14 @@ import {
 import { formatSiteTitle, updateMeta } from '../meta';
 import { haptics } from '../utils/haptics';
 import { initSounds, sounds } from '../utils/sound';
+import {
+  exitFullscreen,
+  isFullscreen,
+  isFullscreenSupported,
+  onFullscreenChange,
+  requestFullscreen,
+} from '../utils/fullscreen';
+import { createWakeLockController } from '../utils/wake-lock';
 import { showToast } from '../components/toast';
 import { requireLegalConsent } from '../components/legal-consent';
 
@@ -86,6 +94,8 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
         `,
       })}
 
+      <button class="AppHeaderIconBtn RunFullscreenBtn hidden" id="runFullscreenBtn" type="button" aria-label="Enter fullscreen" aria-pressed="false"></button>
+
       <div class="RunCornerInfo" id="runCornerInfo" aria-live="polite">
         <div class="RunCornerLine" id="runCornerLine"></div>
         <div class="RunCornerScale hidden" id="runCornerScale"></div>
@@ -103,6 +113,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
 
       <!-- Start overlay (shown when idle) -->
       <div class="RunStartOverlay" id="startOverlay" role="button" tabindex="0" aria-label="Tap anywhere to start workout">
+        <button class="AppHeaderIconBtn RunOverlayFullscreenBtn" id="runOverlayFullscreenBtn" type="button" aria-label="Enter fullscreen" aria-pressed="false"></button>
         <div class="RunStartOverlayContent">
           <div class="StartOverlayText">Tap anywhere to start</div>
           <button class="SecondaryBtn RunStartShareBtn" id="startShareBtn" type="button" aria-label="Invite friends to this workout">
@@ -235,6 +246,8 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   const headerSoundEl = root.querySelector<HTMLButtonElement>('#runHeaderSound')!;
   const headerShareEl = root.querySelector<HTMLButtonElement>('#runHeaderShare')!;
   const headerEditEl = root.querySelector<HTMLButtonElement>('#runHeaderEdit')!;
+  const fullscreenBtn = root.querySelector<HTMLButtonElement>('#runFullscreenBtn')!;
+  const fullscreenOverlayBtn = root.querySelector<HTMLButtonElement>('#runOverlayFullscreenBtn')!;
 
   // Set up header with cleanup callback
   setupAppHeader(root, {
@@ -259,9 +272,19 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       }
       ws = null;
     }
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    void wakeLock.release();
+    cleanupFullscreen();
+    cleanupFullscreenAutohide();
   };
 
   let definitionId: string | null = null;
+  const wakeLock = createWakeLockController();
+  const handleVisibilityChange = () => wakeLock.handleVisibilityChange();
+  let cleanupFullscreen = () => {};
+  let fullscreenAutohideTimeoutId = 0;
+  let cleanupFullscreenAutohide = () => {};
+  let runStatusForFullscreen: string = 'idle';
 
   const soundSvgOn = `
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -304,6 +327,126 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     cleanupLiveConnection();
     navigate(`/w/${encodeURIComponent(definitionId)}/edit`);
   });
+
+  const fullscreenSvgEnter = `
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="4 9 4 4 9 4"></polyline>
+      <polyline points="15 4 20 4 20 9"></polyline>
+      <polyline points="20 15 20 20 15 20"></polyline>
+      <polyline points="9 20 4 20 4 15"></polyline>
+    </svg>
+  `;
+  const fullscreenSvgExit = `
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="4 9 9 9 9 4"></polyline>
+      <polyline points="15 4 15 9 20 9"></polyline>
+      <polyline points="20 15 15 15 15 20"></polyline>
+      <polyline points="9 20 9 15 4 15"></polyline>
+    </svg>
+  `;
+  const fullscreenSupported = isFullscreenSupported(document.documentElement);
+  const setFullscreenButtonState = (button: HTMLButtonElement, active: boolean) => {
+    const label = fullscreenSupported
+      ? active
+        ? 'Exit fullscreen'
+        : 'Enter fullscreen'
+      : 'Fullscreen not supported';
+    button.setAttribute('aria-label', label);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    button.setAttribute('aria-disabled', fullscreenSupported ? 'false' : 'true');
+    button.classList.toggle('RunFullscreenBtn--disabled', !fullscreenSupported);
+    button.title = label;
+    button.innerHTML = active ? fullscreenSvgExit : fullscreenSvgEnter;
+  };
+  const fullscreenAutohideMs = 3000;
+  let fullscreenAutohideActive = false;
+  let fullscreenAutohideRafId = 0;
+  const showFullscreenBtn = () => {
+    fullscreenBtn.classList.remove('autohide');
+  };
+  const hideFullscreenBtn = () => {
+    fullscreenBtn.classList.add('autohide');
+  };
+  const cancelFullscreenAutohide = () => {
+    if (!fullscreenAutohideTimeoutId) return;
+    clearTimeout(fullscreenAutohideTimeoutId);
+    fullscreenAutohideTimeoutId = 0;
+  };
+  const wantsFullscreenAutohide = () => isFullscreen() && runStatusForFullscreen === 'running';
+  const startFullscreenAutohideTimer = () => {
+    cancelFullscreenAutohide();
+    fullscreenAutohideTimeoutId = window.setTimeout(() => {
+      if (wantsFullscreenAutohide()) {
+        hideFullscreenBtn();
+      }
+      fullscreenAutohideTimeoutId = 0;
+    }, fullscreenAutohideMs);
+  };
+  const updateFullscreenAutohide = (forceReshow = false) => {
+    const wanted = wantsFullscreenAutohide();
+    if (!wanted) {
+      fullscreenAutohideActive = false;
+      cancelFullscreenAutohide();
+      showFullscreenBtn();
+      return;
+    }
+    if (!fullscreenAutohideActive) {
+      fullscreenAutohideActive = true;
+      showFullscreenBtn();
+      startFullscreenAutohideTimer();
+      return;
+    }
+    if (forceReshow) {
+      showFullscreenBtn();
+      startFullscreenAutohideTimer();
+    }
+  };
+  const handleFullscreenPointerActivity = () => {
+    if (!wantsFullscreenAutohide()) return;
+    if (fullscreenAutohideRafId) return;
+    fullscreenAutohideRafId = window.requestAnimationFrame(() => {
+      fullscreenAutohideRafId = 0;
+      updateFullscreenAutohide(true);
+    });
+  };
+  document.addEventListener('mousemove', handleFullscreenPointerActivity, { passive: true });
+  const updateFullscreenButtons = () => {
+    const active = isFullscreen();
+    setFullscreenButtonState(fullscreenBtn, active);
+    setFullscreenButtonState(fullscreenOverlayBtn, active);
+    updateFullscreenAutohide(true);
+  };
+  const handleFullscreenToggle = async (event: Event) => {
+    event.stopPropagation();
+    if (!fullscreenSupported) {
+      showToast('Fullscreen not supported on this device.', 'muted', { timeoutMs: 1800 });
+      return;
+    }
+    const ok = isFullscreen()
+      ? await exitFullscreen()
+      : await requestFullscreen(document.documentElement);
+    if (!ok) {
+      showToast('Fullscreen request was blocked.', 'muted', { timeoutMs: 1800 });
+      return;
+    }
+    // Some browsers/devices are flaky about firing fullscreenchange promptly.
+    updateFullscreenButtons();
+  };
+  fullscreenBtn.addEventListener('click', handleFullscreenToggle);
+  fullscreenOverlayBtn.addEventListener('click', handleFullscreenToggle);
+  fullscreenOverlayBtn.addEventListener('keydown', (event) => {
+    if (event.key === ' ' || event.key === 'Enter') {
+      event.stopPropagation();
+    }
+  });
+  updateFullscreenButtons();
+  cleanupFullscreen = onFullscreenChange(updateFullscreenButtons);
+  cleanupFullscreenAutohide = () => {
+    cancelFullscreenAutohide();
+    if (fullscreenAutohideRafId) window.cancelAnimationFrame(fullscreenAutohideRafId);
+    fullscreenAutohideRafId = 0;
+    document.removeEventListener('mousemove', handleFullscreenPointerActivity);
+  };
 
   const onPopState = () => {
     const route = getRoute();
@@ -446,6 +589,7 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
   let lastMetaTitle = '';
   let lastHeaderTitle = '';
   let lastStatus = simDerived.status;
+  runStatusForFullscreen = simDerived.status;
   let lastCornerRenderKey = '';
   let lastCountdownLabel = '';
   let lastBreakRenderKey = '';
@@ -649,11 +793,15 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     );
 
     // Show/hide start overlay based on idle status and schedule state
-    if (status === 'idle' && !hasScheduledStart && canControl) {
+    const showStartOverlay = status === 'idle' && !hasScheduledStart && canControl;
+    if (showStartOverlay) {
       startOverlayEl.classList.remove('hidden');
     } else {
       startOverlayEl.classList.add('hidden');
     }
+
+    // Hide floating fullscreen button when overlay is visible to avoid transparency stacking
+    fullscreenBtn.classList.toggle('hidden', showStartOverlay);
 
     // Show finish summary when timer completes
     if (status === 'finished' && !finishSummaryShown) {
@@ -1234,6 +1382,8 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
       }
 
       if (lastStatus !== simDerived.status) {
+        runStatusForFullscreen = simDerived.status;
+        updateFullscreenAutohide(true);
         if (simDerived.status === 'running') showTapHintTemporarily();
         if (lastStatus === 'running' && simDerived.status === 'paused') {
           sounds.play('pause');
@@ -1526,6 +1676,9 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     showToast('Accept Terms & Privacy to view a run.', 'error');
     return;
   }
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  void wakeLock.request();
 
   // --- Load initial state ---
   setStatus('Loading...', 'muted');

@@ -1704,6 +1704,50 @@ body {
   opacity: 0.5;
 }
 
+/* Fullscreen toggle */
+.RunFullscreenBtn,
+.RunOverlayFullscreenBtn {
+  justify-content: center;
+  background: var(--bg-elevated);
+}
+
+.RunFullscreenBtn {
+  position: fixed;
+  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  left: var(--space-md);
+  z-index: 118; /* Above countdown (110) and rep celebration (115), below finish (120) */
+  transition: opacity 0.3s ease-out;
+}
+
+.RunFullscreenBtn.hidden {
+  display: none;
+}
+
+.RunFullscreenBtn.autohide {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.RunOverlayFullscreenBtn {
+  position: absolute;
+  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  left: var(--space-md);
+  z-index: 1;
+}
+
+.RunFullscreenBtn--disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .RunFullscreenBtn:hover,
+  .RunOverlayFullscreenBtn:hover {
+    background: var(--bg-surface);
+    color: var(--text);
+  }
+}
+
 /* Tap hint (fades in after timer starts, positioned to not occlude timer) */
 .RunTapHint {
   position: fixed;
