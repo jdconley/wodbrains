@@ -112,6 +112,9 @@ test.describe('Stop and Reset buttons', () => {
 
     // Pause
     await page.locator('#pause').click();
+    // Wait for paused UI state before sampling the timer to avoid flakiness where the
+    // pause click is processed slightly after the timer sample (especially in CI).
+    await expect(page.locator('.TimerControlBtn--resume')).toBeVisible();
     const t1 = parseTimerMs(await timer.textContent());
     await page.waitForTimeout(500);
     const t2 = parseTimerMs(await timer.textContent());

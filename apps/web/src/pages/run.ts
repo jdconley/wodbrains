@@ -1698,11 +1698,12 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
     );
   };
 
+  // Serialize event posts to avoid out-of-order snapshot application.
+  // Without this, overlapping requests (e.g. a `split` triggered by a tap followed
+  // immediately by `pause`) can resolve in the opposite order and clobber newer state.
+  let sendEventChain: Promise<void> = Promise.resolve();
+
   const sendEvent = async (ev: Record<string, unknown>) => {
-    if (!canControl) {
-      setStatus('Participant mode (view-only)', 'muted');
-      return;
-    }
     const withId =
       typeof ev.id === 'string' && ev.id
         ? ev
@@ -1710,22 +1711,34 @@ export async function renderRunPage(root: HTMLElement, runId: string) {
             id: createEventId(),
             ...ev,
           };
-    try {
-      const snap = await postRunEvent(runId, withId);
-      applySnapshot(snap as RunSnapshot);
-      refreshSimDerived();
-    } catch (err) {
-      if (err instanceof ApiError && err.code === 'view_only') {
-        canControl = false;
-        savePendingEvents([]);
+
+    const run = async () => {
+      if (!canControl) {
         setStatus('Participant mode (view-only)', 'muted');
         return;
       }
-      const pending = loadPendingEvents();
-      pending.push(withId);
-      savePendingEvents(pending);
-      setStatus('Offline: action queued', 'muted');
-    }
+      try {
+        const snap = await postRunEvent(runId, withId);
+        applySnapshot(snap as RunSnapshot);
+        refreshSimDerived();
+      } catch (err) {
+        if (err instanceof ApiError && err.code === 'view_only') {
+          canControl = false;
+          savePendingEvents([]);
+          setStatus('Participant mode (view-only)', 'muted');
+          return;
+        }
+        const pending = loadPendingEvents();
+        pending.push(withId);
+        savePendingEvents(pending);
+        setStatus('Offline: action queued', 'muted');
+      }
+    };
+
+    const p = sendEventChain.then(run, run);
+    // Keep the chain alive even if something unexpectedly throws.
+    sendEventChain = p.catch(() => {});
+    return p;
   };
 
   const advanceSegment = async () => {
