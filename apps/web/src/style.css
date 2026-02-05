@@ -38,6 +38,20 @@
   --content-pad-x: var(--space-md);
   --content-pad-y: var(--space-lg);
 
+  /* Safe area insets (PWA notch handling) */
+  --safe-top: 0px;
+  --safe-right: 0px;
+  --safe-bottom: 0px;
+  --safe-left: 0px;
+  --safe-top: constant(safe-area-inset-top);
+  --safe-right: constant(safe-area-inset-right);
+  --safe-bottom: constant(safe-area-inset-bottom);
+  --safe-left: constant(safe-area-inset-left);
+  --safe-top: env(safe-area-inset-top);
+  --safe-right: env(safe-area-inset-right);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-left: env(safe-area-inset-left);
+
   /* Border radius scale */
   --radius-sm: 8px;
   --radius-md: 16px;
@@ -80,7 +94,7 @@
 }
 
 .SkipLink:focus {
-  top: 0;
+  top: var(--safe-top);
 }
 
 /* Focus visible for keyboard navigation */
@@ -199,7 +213,9 @@ body {
   align-items: center;
   /* Keep 44px hit targets, center icon glyphs */
   --app-header-side: 56px;
-  padding: var(--space-md) var(--content-pad-x);
+  padding-top: calc(var(--space-md) + var(--safe-top));
+  padding-right: calc(var(--content-pad-x) + var(--safe-right));
+  padding-left: calc(var(--content-pad-x) + var(--safe-left));
   padding-bottom: 0;
   transition: opacity 0.3s ease-out;
 }
@@ -630,7 +646,7 @@ body {
 .ConnectionPill {
   position: fixed;
   left: 50%;
-  bottom: max(16px, env(safe-area-inset-bottom));
+  bottom: max(16px, var(--safe-bottom));
   transform: translateX(-50%);
   display: none;
   align-items: center;
@@ -1376,7 +1392,7 @@ html.RunCursorHidden * {
 .ToastHost {
   position: fixed;
   left: 50%;
-  bottom: max(16px, env(safe-area-inset-bottom));
+  bottom: max(16px, var(--safe-bottom));
   transform: translateX(-50%);
   z-index: 220;
   display: flex;
@@ -1419,7 +1435,7 @@ html.RunCursorHidden * {
 @media (min-width: 760px) {
   .ToastHost {
     bottom: auto;
-    top: max(16px, env(safe-area-inset-top));
+    top: max(16px, var(--safe-top));
   }
 
   .Toast--hide {
@@ -1707,8 +1723,8 @@ html.RunCursorHidden * {
 /* Corner role/presence/timeScale */
 .RunCornerInfo {
   position: fixed;
-  top: var(--space-md);
-  right: var(--space-md);
+  top: calc(var(--space-md) + var(--safe-top));
+  right: calc(var(--space-md) + var(--safe-right));
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -1780,7 +1796,7 @@ html.RunCursorHidden * {
 
 .RunFullscreenBtn {
   position: fixed;
-  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  bottom: max(var(--space-md), var(--safe-bottom));
   left: var(--space-md);
   z-index: 118; /* Above countdown (110) and rep celebration (115), below finish (120) */
   transition: opacity 0.3s ease-out;
@@ -1788,14 +1804,14 @@ html.RunCursorHidden * {
 
 .RunMuteBtn {
   position: fixed;
-  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  bottom: max(var(--space-md), var(--safe-bottom));
   right: var(--space-md);
   z-index: 118; /* Above countdown (110) and rep celebration (115), below finish (120) */
 }
 
 .RunInfoBtn {
   position: fixed;
-  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  bottom: max(var(--space-md), var(--safe-bottom));
   right: calc(var(--space-md) + 44px + var(--space-sm));
   z-index: 118; /* Above countdown (110) and rep celebration (115), below finish (120) */
 }
@@ -1829,21 +1845,21 @@ html.RunCursorHidden * {
 
 .RunOverlayFullscreenBtn {
   position: absolute;
-  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  bottom: max(var(--space-md), var(--safe-bottom));
   left: var(--space-md);
   z-index: 1;
 }
 
 .RunOverlayMuteBtn {
   position: absolute;
-  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  bottom: max(var(--space-md), var(--safe-bottom));
   right: var(--space-md);
   z-index: 1;
 }
 
 .RunOverlayInfoBtn {
   position: absolute;
-  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  bottom: max(var(--space-md), var(--safe-bottom));
   right: calc(var(--space-md) + 44px + var(--space-sm));
   z-index: 1;
 }
@@ -1867,7 +1883,7 @@ html.RunCursorHidden * {
 /* Tap hint (fades in after timer starts, positioned to not occlude timer) */
 .RunTapHint {
   position: fixed;
-  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  bottom: max(var(--space-md), var(--safe-bottom));
   left: calc(var(--space-md) + 44px + var(--space-sm));
   right: calc(var(--space-md) + 44px + var(--space-sm));
   height: 44px;
@@ -2149,7 +2165,7 @@ html.RunCursorHidden * {
   background: var(--bg-overlay);
   z-index: 106;
   padding: 24px;
-  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  padding-bottom: max(24px, var(--safe-bottom));
 }
 
 .RunSplitOverlay.hidden {
@@ -3692,7 +3708,7 @@ html.RunCursorHidden * {
 }
 
 .ImportShell--home .AppHeader {
-  padding-top: calc(env(safe-area-inset-top) + var(--space-lg));
+  padding-top: calc(var(--safe-top) + var(--space-lg));
 }
 
 .ImportShell--home .AppHeaderLogo--center {

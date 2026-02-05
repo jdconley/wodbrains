@@ -42,6 +42,32 @@ test.describe('About page', () => {
     expect(ctaBox?.y ?? 0).toBeGreaterThan(200);
   });
 
+  test('applies safe area inset to header', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/about');
+
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty('--safe-top', '44px');
+      document.documentElement.style.setProperty('--safe-left', '10px');
+      document.documentElement.style.setProperty('--safe-right', '12px');
+    });
+
+    const header = page.locator('.AppHeader');
+    const paddingTop = await header.evaluate((el) =>
+      Number.parseFloat(getComputedStyle(el).paddingTop),
+    );
+    const paddingLeft = await header.evaluate((el) =>
+      Number.parseFloat(getComputedStyle(el).paddingLeft),
+    );
+    const paddingRight = await header.evaluate((el) =>
+      Number.parseFloat(getComputedStyle(el).paddingRight),
+    );
+
+    expect(paddingTop).toBeCloseTo(60, 1);
+    expect(paddingLeft).toBeCloseTo(26, 1);
+    expect(paddingRight).toBeCloseTo(28, 1);
+  });
+
   test('footer link navigates to about', async ({ page }) => {
     await page.goto('/');
     await page.locator('a[href="/about"]').click();
