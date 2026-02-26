@@ -15,24 +15,33 @@ This skill captures the proven workflow for quickly diagnosing and fixing failin
 gh run list --workflow deploy.yml --limit 10
 ```
 
-2. Inspect the failing run:
+2. Inspect the failing run (quick):
 
 ```bash
 gh run view <run_id> --log-failed
 gh run view <run_id> --json status,conclusion,url,displayTitle
 ```
 
+3. If the root error isn’t in `--log-failed`, pull the **full job log** (common when a later step exits fast, or when multiple packages run tests):
+
+```bash
+# Get the job database ID(s)
+gh run view <run_id> --json jobs --jq '.jobs[] | {name: .name, id: .databaseId, conclusion: .conclusion}'
+
+# Dump logs for a specific job ID and filter to likely errors
+gh run view <run_id> --job <job_id> --log | rg -n "ERR_|FAIL|Error|\\#\\#\\[error\\]|Process completed with exit code" -S
+```
+
+Notes:
+
+- `pnpm -r --workspace-concurrency=1 test` can continue printing subsequent package blocks even after the _first_ failure. Find the **first real stack trace / assertion** and fix that.
+- If CI output says “worker tests failed”, confirm whether the **web Playwright E2E** failed first and the worker step only shows an exit (no useful failure output).
+
 3. Classify the failure:
 
-- **Playwright browser missing**
-  - Symptom: `browserType.launch: Executable doesn't exist at ...`
-  - Fix: install Playwright browsers during CI (see “Fix Patterns”).
-- **Playwright webServer readiness hang**
-  - Symptom: `Error: Timed out waiting <ms> from config.webServer.`
-  - Fix: treat it as “server didn’t start” or “URL not reachable from runner” (see “webServer Debugging”).
 - **dotenvx missing env file warnings**
   - Symptom: many `[MISSING_ENV_FILE]` lines.
-  - Usually noisy but non-fatal; focus on the first real error after them.
+  - Noisy but non-fatal; focus on the first real error after them.
 
 ## Local Reproduction (CI-like)
 
@@ -86,6 +95,22 @@ Local tip:
 ```bash
 E2E_WORKER_PORT=8790 E2E_WEB_PORT=5176 pnpm --filter web test
 ```
+
+## Local Repro for Flaky Playwright Failures
+
+When a CI failure looks timing-sensitive (timer “should be frozen”, element “should be visible”, etc.), reproduce **serially** first:
+
+```bash
+# Full E2E suite, single worker, stable ports
+E2E_WORKER_PORT=8790 E2E_WEB_PORT=5176 pnpm exec playwright test -c playwright.config.ts --workers=1
+
+# Or: a single failing test/spec
+E2E_WORKER_PORT=8790 E2E_WEB_PORT=5176 pnpm exec playwright test -c playwright.config.ts apps/web/e2e/<spec>.spec.ts -g "<test name>" --workers=1
+```
+
+Gotcha:
+
+- Don’t pass `--project=chromium` unless your Playwright config defines projects (in this repo it may be empty).
 
 ## Fix Patterns (the ones that actually worked)
 

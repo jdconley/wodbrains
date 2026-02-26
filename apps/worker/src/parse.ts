@@ -57,7 +57,7 @@ const ParseResultSchema = z.object({
 const DEFAULT_WORKOUT_TITLE = 'Workout';
 const MAX_TITLE_LENGTH = 80;
 
-export const PARSE_MODEL_ID = 'gemini-3-pro-preview';
+export const PARSE_MODEL_ID = 'gemini-3.1-pro-preview';
 export const TITLE_MODEL_ID = 'gemini-2.5-flash-lite';
 
 export const sanitizeWorkoutTitle = (value: unknown): string | undefined => {
